@@ -1,0 +1,12 @@
+# Generated build files
+build/
+
+# VS Code configuration
+.vscode/
+
+# Compiled firmware
+*.uf2
+*.elf
+*.bin
+*.hex
+*.map
