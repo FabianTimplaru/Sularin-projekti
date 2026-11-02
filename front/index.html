@@ -9,16 +9,22 @@
             background-color: beige;
         }
         body {padding: 10px 20px 10px 20px; font-family: 'Times New Roman', Times, serif;}
-        .kaavioLaatikko { position: relative; height: 400px; width: 700px;}
         .otsikko {position:relative; height: 30px; color:brown}
+        .kaaviot{ display:flex; gap: 20px;}
+        .kaavioLaatikko { position: relative; flex: 1; height: 400px;}
+        .nappi{position: fixed; bottom: 50px; right: 500px; size: 20, 20;}
         #footer {position:fixed; bottom: 10px; right: 20px;}
     </style>
 </head>
 <body>
     <div id="otsikko" class="otsikko"><h1>Lämpötila & Kosteus</h1></div>
+    <div class="kaaviot">
     <div class="kaavioLaatikko"><canvas id="kaavio"></canvas>
     </div>
+    <div class="kaavioLaatikko"><canvas id="kaavioLatest"></canvas>
+    </div>
 </div>
+    <div class="nappi"><button>Nappula.</button></div>
     <footer id="footer">©footer</footer>
 <script src="chart/chart.js"></script><!--Paikallinen chart, muuta tarvittaessa-->
 <!--Funktiot -->
@@ -63,16 +69,26 @@ function luoKaavio(canvasId = 'kaavio'){
     }
   });
 }
-
+    
+//kaavio fetch
 async function haeData(){
-  const vastaus = await fetch('data.json'); // Tähän tilalle fetch -> Fabianin osoite
-  if(!vastaus.ok) throw new Error('Virhe: ' + vastaus.status);
-  const data = await vastaus.json();
+  const historia = await fetch('data.json'); // Tähän tilalle fetch ->Historia,  Fabianin osoite
+  if(!historia.ok) throw new Error('Virhe: ' + historia.status);
+  const data = await historia.json();
   console.log(data);
   return data;
 }
 
-function paivitaKaavio(rivit){
+//kaaviolatest fetch
+async function haeLatest(){
+  const latest = await fetch('data2.json'); //Tähän sitten toinen fetch -> esim live/nykyhetki tms
+  if(!latest.ok) throw new Error('Virhe: ' + latest.status);
+  const data2 = await latest.json();
+  console.log(data2);
+  return data2; 
+}
+
+function paivitaKaavio(kaavio, rivit){
   kaavio.data.labels = rivit.map(r => r.aika);
   kaavio.data.datasets[0].data = rivit.map(r => r.lampotila);
   kaavio.data.datasets[1].data = rivit.map(r => r.kosteus);
@@ -80,7 +96,11 @@ function paivitaKaavio(rivit){
 }
 
 const kaavio = luoKaavio('kaavio');
-haeData().then(paivitaKaavio).catch(console.error);
+haeData().then(rivit => paivitaKaavio(kaavio, rivit)).catch(console.error);
+
+const kaavioLatest = luoKaavio('kaavioLatest');
+haeLatest().then(rivit => paivitaKaavio(kaavioLatest, rivit)).catch(console.error);
+
 </script>
 <!--Funktiot loppuu-->
 </body>
