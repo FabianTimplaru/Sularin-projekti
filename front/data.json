@@ -1,0 +1,8 @@
+[
+  { "aika": "10:00", "lampotila": 21.2, "kosteus": 45.0 },
+  { "aika": "11:00", "lampotila": 21.8, "kosteus": 46.5 },
+  { "aika": "12:00", "lampotila": 22.4, "kosteus": 44.1 },
+  { "aika": "13:00", "lampotila": 22.9, "kosteus": 43.2 },
+  { "aika": "14:00", "lampotila": 22.5, "kosteus": 44.8 },
+  { "aika": "15:00", "lampotila": 21.9, "kosteus": 47.3 }
+]

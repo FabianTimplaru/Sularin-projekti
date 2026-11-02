@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kosteusanturi</title>
+    <style>
+        :root{
+            background-color: beige;
+        }
+        body {padding: 10px 20px 10px 20px; font-family: 'Times New Roman', Times, serif;}
+        .kaavioLaatikko { position: relative; height: 400px; width: 700px;}
+        .otsikko {position:relative; height: 30px; color:brown}
+        #footer {position:fixed; bottom: 10px; right: 20px;}
+    </style>
+</head>
+<body>
+    <div id="otsikko" class="otsikko"><h1>Lämpötila & Kosteus</h1></div>
+    <div class="kaavioLaatikko"><canvas id="kaavio"></canvas>
+    </div>
+</div>
+    <footer id="footer">©footer</footer>
+<script src="chart/chart.js"></script><!--Paikallinen chart, muuta tarvittaessa-->
+<!--Funktiot -->
+<script>
+function luoKaavio(canvasId = 'kaavio'){
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  return new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [
+        {
+          label: 'Lämpötila (°C)',
+          data: [],
+          borderColor: 'red',
+          backgroundColor: 'transparent',
+          yAxisID: 'yLampo',
+          tension: 0.3,
+          pointRadius: 0,
+          borderWidth: 2
+        },
+        {
+          label: 'Kosteus (%)',
+          data: [],
+          borderColor: 'blue',
+          backgroundColor: 'transparent',
+          yAxisID: 'yKosteus',
+          tension: 0.3,
+          pointRadius: 0,
+          borderWidth: 2
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      scales: {
+        yLampo: { position: 'left' },
+        yKosteus: { position: 'right', grid: { drawOnChartArea: false } }
+      }
+    }
+  });
+}
+
+async function haeData(){
+  const vastaus = await fetch('data.json'); // Tähän tilalle fetch -> Fabianin osoite
+  if(!vastaus.ok) throw new Error('Virhe: ' + vastaus.status);
+  const data = await vastaus.json();
+  console.log(data);
+  return data;
+}
+
+function paivitaKaavio(rivit){
+  kaavio.data.labels = rivit.map(r => r.aika);
+  kaavio.data.datasets[0].data = rivit.map(r => r.lampotila);
+  kaavio.data.datasets[1].data = rivit.map(r => r.kosteus);
+  kaavio.update();
+}
+
+const kaavio = luoKaavio('kaavio');
+haeData().then(paivitaKaavio).catch(console.error);
+</script>
+<!--Funktiot loppuu-->
+</body>
+</html>
