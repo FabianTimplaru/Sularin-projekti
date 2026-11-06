@@ -1,7 +1,9 @@
 #include <stdio.h>
 #include "pico/stdlib.h"
 #include "hardware/adc.h"
-
+#include "pico/cyw43_arch.h"
+#include "lwip/netif.h"     // Tarvitaan IP-osoitteen lukemiseen
+#include "wifi_config.h"    // Omat salasanat
 // Määritellään pinnit
 #define POWER_PIN 15
 #define ADC_PIN 26
@@ -25,11 +27,35 @@ int main()
     adc_select_input(ADC_CHANNEL);
 
     // Annetaan USB-yhteydelle aikaa aueta ennen tulostelua
-    while (!stdio_usb_connected())
-    {
-        sleep_ms(100);
-    }
+    sleep_ms(2000);
     printf("DIY Mullan Kosteusmittari (Pico 2W) käynnistetty!\n");
+    printf("Kaynnistetaan Wi-Fi testi...\n");
+
+    // 2. Alustetaan Pico W:n CYW43-verkkopiiri
+    if (cyw43_arch_init()) {
+        printf("Virhe: Wi-Fi-piirin alustus epaonnistui!\n");
+        return -1;
+    }
+
+    // 3. Asetetaan piiri Station-tilaan (yhdistää reitittimeen, ei luo omaa verkkoa)
+    cyw43_arch_enable_sta_mode();
+
+    printf("Yhdistetaan verkkoon: %s\n", WIFI_SSID);
+
+    // 4. Yritetään yhdistää verkkoon (aikakatkaisu 10 sekuntia eli 10000 ms)
+    // CYW43_AUTH_WPA2_MIXED_PSK toimii lähes kaikissa nykyaikaisissa kotiverkoissa
+    if (cyw43_arch_wifi_connect_timeout_ms(WIFI_SSID, WIFI_PASSWORD, CYW43_AUTH_WPA2_MIXED_PSK, 10000)) {
+        printf("Virhe: Verkkoon yhdistaminen epaonnistui.\n");
+        return -1;
+    }
+
+    printf("Yhdistetty onnistuneesti!\n");
+
+    // 5. Luetaan ja tulostetaan laitteen saama IP-osoite
+    // netif_default on lwIP-kirjaston oletusverkkoliitäntä (eli Picon Wi-Fi)
+    printf("IP-osoite: %s\n", ip4addr_ntoa(netif_ip4_addr(netif_default)));
+
+
 
     while (1)
     {

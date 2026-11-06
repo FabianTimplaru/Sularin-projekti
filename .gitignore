@@ -10,3 +10,6 @@ build/
 *.bin
 *.hex
 *.map
+
+#WIFI Config file
+/firmware/wifi_config.h
