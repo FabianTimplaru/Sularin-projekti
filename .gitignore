@@ -10,3 +10,6 @@ build/
 *.bin
 *.hex
 *.map
+
+node_modules/
+dist/
