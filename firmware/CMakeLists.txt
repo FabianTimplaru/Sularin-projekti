@@ -7,7 +7,7 @@ set(CMAKE_C_STANDARD 11)
 pico_sdk_init()
 
 # Lisätään alikansio DHT11-ajurille
-#add_subdirectory(lib/dht11)
+add_subdirectory(lib/dht11)
 
 file(GLOB_RECURSE SRC_FILES "src/*.c")
 add_executable(PicoApp ${SRC_FILES})
@@ -23,7 +23,7 @@ target_link_libraries(PicoApp
     pico_stdlib
     pico_cyw43_arch_lwip_threadsafe_background # Pico W Wi-Fi + verkkoyhteydet
     hardware_adc
-#    dht11_driver
+    dht11_driver
 )
 
 pico_enable_stdio_usb(PicoApp 1)
