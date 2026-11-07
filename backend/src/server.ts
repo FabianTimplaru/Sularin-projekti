@@ -2,6 +2,8 @@ import express, { Express, Request, Response } from 'express';
 import { measurementSchema } from './schemas/measurement.schema';
 import type { Measurement } from './types/measurement';
 import { addMeasurement, getAllMeasurements, getLatestMeasurement } from './storage/measurement.store';
+import { getSettings, updateSettings } from './storage/settings.store';
+import { settingsSchema } from './schemas/settings.schema';
 
 const app: Express = express();
 const port = 3000;
@@ -21,6 +23,11 @@ app.get('/api/status', (req: Request, res: Response) => {
         "device": "Pico 2 W",
         "sensor": "soil-moisture"
     });
+});
+
+// Endpoint to get the current settings
+app.get('/api/settings', (req: Request, res: Response) => {
+    res.status(200).json(getSettings());
 });
 
 // Endpoint to get all measurements
@@ -74,6 +81,21 @@ app.post('/api/measurements', (req: Request, res: Response) => {
     } else {
         res.status(400).json({
             "error": "Invalid measurement data"
+        });
+    }
+});
+
+// Endpoint to update the settings
+// We use zod to validate the incoming data against the settingsSchema
+// We temporary store the settings in memory, but in a real application we would store them in a database
+app.patch('/api/settings', (req: Request, res: Response) => {
+    const result = settingsSchema.safeParse(req.body);
+    if (result.success) {
+        updateSettings(result.data);
+        res.status(200).json(getSettings());
+    } else {
+        res.status(400).json({
+            "error": "Invalid settings"
         });
     }
 });
