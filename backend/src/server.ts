@@ -54,24 +54,15 @@ app.post('/api/measurements', (req: Request, res: Response) => {
     const result = measurementSchema.safeParse(req.body);
 
     if (result.success) {
-        const relativeMoisture = result.data.moisture;
-        const airHumidity = result.data.airHumidity;
-        const temperature = result.data.temperature;
-        const rawReading = result.data.rawAdc;
-
-        console.log(`Received measurements:
-        Relative Moisture: ${relativeMoisture}
-        Air Humidity: ${airHumidity}
-        Temperature: ${temperature}
-        Raw ADC Reading: ${rawReading}`);
-
         const measurement: Measurement = {
-            relativeMoisture: relativeMoisture,
-            airHumidity: airHumidity,
-            temperature: temperature,
-            rawAdc: rawReading,
+            relativeMoisture: result.data.moisture,
+            airHumidity: result.data.airHumidity,
+            temperature: result.data.temperature,
+            rawAdc: result.data.rawAdc,
             timestamp: new Date()
         };
+
+        console.log("Received measurement:", measurement);
 
         addMeasurement(measurement);
         res.status(201).json({
