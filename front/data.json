@@ -1,8 +1,8 @@
 [
-  { "aika": "10:00", "lampotila": 21.2, "kosteus": 45.0 },
-  { "aika": "11:00", "lampotila": 21.8, "kosteus": 46.5 },
-  { "aika": "12:00", "lampotila": 22.4, "kosteus": 44.1 },
-  { "aika": "13:00", "lampotila": 22.9, "kosteus": 43.2 },
-  { "aika": "14:00", "lampotila": 22.5, "kosteus": 44.8 },
-  { "aika": "15:00", "lampotila": 21.9, "kosteus": 47.3 }
+  { "aika": "10:00", "lampotila": 21.2, "kosteus": 45.0, "maankosteus": 58.9 },
+  { "aika": "11:00", "lampotila": 21.8, "kosteus": 46.5, "maankosteus": 45.3 },
+  { "aika": "12:00", "lampotila": 22.4, "kosteus": 44.1, "maankosteus": 56.7 },
+  { "aika": "13:00", "lampotila": 22.9, "kosteus": 43.2, "maankosteus": 88.4 },
+  { "aika": "14:00", "lampotila": 22.5, "kosteus": 44.8, "maankosteus": 54.9 },
+  { "aika": "15:00", "lampotila": 21.9, "kosteus": 47.3, "maankosteus": 55.6 }
 ]
