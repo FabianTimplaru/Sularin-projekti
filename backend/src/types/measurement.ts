@@ -1,8 +1,8 @@
 // Define the Measurement interface to represent the structure of a measurement
 export interface Measurement {
-    relativeMoisture: number;
+    temp: number;
     airHumidity: number;
-    temperature: number;
-    rawAdc: number;
+    soilMoisture_adc: number;
+    soilMoisture_percent: number;
     timestamp: Date;
 }
