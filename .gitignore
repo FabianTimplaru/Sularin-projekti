@@ -13,3 +13,6 @@ build/
 
 node_modules/
 dist/
+
+#WIFI Config file
+/firmware/wifi_config.h
