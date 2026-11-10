@@ -13,6 +13,7 @@ build/
 
 node_modules/
 dist/
+.env
 
 #WIFI Config file
 /firmware/wifi_config.h

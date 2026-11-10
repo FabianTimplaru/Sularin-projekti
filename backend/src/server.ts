@@ -4,6 +4,7 @@ import type { Measurement } from './types/measurement';
 import { addMeasurement, getAllMeasurements, getLatestMeasurement } from './storage/measurement.store';
 import { getSettings, updateSettings } from './storage/settings.store';
 import { settingsSchema } from './schemas/settings.schema';
+import 'dotenv/config';
 
 const app: Express = express();
 const port = 3000;
@@ -54,11 +55,18 @@ app.post('/api/measurements', (req: Request, res: Response) => {
     const result = measurementSchema.safeParse(req.body);
 
     if (result.success) {
+        if (!process.env.API_TOKEN || result.data.token !== process.env.API_TOKEN) {
+            res.status(401).json({
+                "error": "Not authorised"
+            });
+            return;
+        }
+
         const measurement: Measurement = {
-            relativeMoisture: result.data.moisture,
+            temp: result.data.temp,
             airHumidity: result.data.airHumidity,
-            temperature: result.data.temperature,
-            rawAdc: result.data.rawAdc,
+            soilMoisture_adc: result.data.soilMoisture_adc,
+            soilMoisture_percent: result.data.soilMoisture_percent,
             timestamp: new Date()
         };
 
