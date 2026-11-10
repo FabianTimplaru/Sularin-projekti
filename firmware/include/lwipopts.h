@@ -17,6 +17,7 @@
 // Estetään tarpeettomia ominaisuuksia säästämään muistia
 #define LWIP_IPV6                   0
 #define LWIP_SOCKET                 0
+#define LWIP_COMPAT_SOCKETS         0
 #define LWIP_NETCONN                0
 #define LWIP_IGMP                   0
 
@@ -35,5 +36,4 @@
 #define LWIP_NETIF_TX_SINGLE_PBUF   1
 #define DHCP_DOES_ARP_CHECK         0
 #define LWIP_DHCP_DOES_ACD_CHECK    0
-
 #endif
