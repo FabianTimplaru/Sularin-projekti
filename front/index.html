@@ -4,159 +4,28 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kosteusanturi</title>
-    <style>
-        :root{
-            background-color: beige;
-        }
-        body {padding: 10px 20px 10px 20px; font-family: 'Times New Roman', Times, serif;}
-        .otsikko {position:relative; height: 30px; color:brown}
-        .kaaviot{ display:flex; gap: 20px;}
-        .kaavioLaatikko { position: relative; flex: 1; height: 400px;}
-        .nappi{position: fixed; bottom: 50px; right: 500px; size: 20, 20;}
-        #footer {position:fixed; bottom: 10px; right: 20px;}
-    </style>
+    <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
     <div id="otsikko" class="otsikko"><h1>Lämpötila & Kosteus</h1></div>
     <div class="kaaviot">
-    <div class="kaavioLaatikko"><canvas id="kaavio"></canvas>
+      <div class="kaavioLaatikko"><canvas id="kaavio"></canvas>
     </div>
-    <div class="kaavioLaatikko"><canvas id="kaavioLatest"></canvas>
+      <div class="kaavioLaatikko"><canvas id="kaavioLatest"></canvas>
     </div>
-</div>
-    <div class="nappi"><button>Nappula.</button></div>
-    <footer id="footer">©footer</footer>
+    </div>
+      <div class="rajalaatikko">
+      
+      <label for="myRange">Raja-arvo Säädin LEDille?</label>
+      <div class="rajaSaadin">
+      <input type="range" min="1" max="100" value="50" class="slider" id="myRange">
+      <output id="rajaArvo" for="myRange">50 %</output>
+      <button id="rajaTallenna">Tallenna.</button>
+      </div>
+    </div>
+    <footer id="footer">©ProjektiRyhma</footer>
 <script src="chart/chart.js"></script><!--Paikallinen chart, muuta tarvittaessa-->
-<!--Funktiot -->
-<script>
-  // ---raja-arvot ---
-const MAX_LAMPO = 30;     // liikaa lämpöä
-const MAX_KOSTEUS = 70;   // liikaa kosteutta
-    
-function luoKaavio(canvasId = 'kaavio'){
-  const ctx = document.getElementById(canvasId).getContext('2d');
-  return new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: [],
-      datasets: [
-        {
-          label: 'Lämpötila (°C)',
-          data: [],
-          borderColor: 'red',
-          backgroundColor: 'transparent',
-          yAxisID: 'yLampo',
-          tension: 0.3,
-          pointRadius: 0,
-          borderWidth: 2
-        },
-        {
-          label: 'Kosteus (%)',
-          data: [],
-          borderColor: 'blue',
-          backgroundColor: 'transparent',
-          yAxisID: 'yKosteus',
-          tension: 0.3,
-          pointRadius: 0,
-          borderWidth: 2
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: { mode: 'index', intersect: false },
-      scales: {
-        yLampo: { position: 'left' },
-        yKosteus: { position: 'right', grid: { drawOnChartArea: false } }
-      }
-    }
-  });
-}
-    
-//kaavio fetch
-async function haeData(){
-  const historia = await fetch('data.json'); // Tähän tilalle fetch ->Historia,  Fabianin osoite
-  if(!historia.ok) throw new Error('Virhe: ' + historia.status);
-  const data = await historia.json();
-  console.log(data);
-  return data;
-}
+<script src="js/script.js"></script>
 
-//kaaviolatest fetch
-async function haeLatest(){
-  const latest = await fetch('data2.json'); //Tähän sitten toinen fetch -> esim live/nykyhetki tms
-  if(!latest.ok) throw new Error('Virhe: ' + latest.status);
-  const data2 = await latest.json();
-  console.log(data2);
-  return data2; 
-}
-    // --- Värivaroitus erikseen lämpötilalle ja kosteudelle ---
-function tarkistaRajaArvot(kaavio, rivit){
-    if (!rivit || rivit.length === 0) return;
-
-    const viimeinen = rivit[rivit.length - 1];
-
-    const lampoYlitys = viimeinen.lampotila > MAX_LAMPO;
-    const kosteusYlitys = viimeinen.kosteus > MAX_KOSTEUS;
-
-    // Lämpötilaviiva
-    kaavio.data.datasets[0].borderColor = lampoYlitys ? 'darkred' : 'red';
-
-    // Kosteusviiva
-    kaavio.data.datasets[1].borderColor = kosteusYlitys ? 'darkred' : 'blue';
-
-    kaavio.update();
-}
-
-function paivitaKaavio(kaavio, rivit){
-  kaavio.data.labels = rivit.map(r => r.aika);
-  kaavio.data.datasets[0].data = rivit.map(r => r.lampotila);
-  kaavio.data.datasets[1].data = rivit.map(r => r.kosteus);
-  kaavio.update();
-  // automaattinen raja-arvotarkistus
-  tarkistaRajaArvot(kaavio, rivit); 
-}
-
-const kaavio = luoKaavio('kaavio');
-haeData().then(rivit => paivitaKaavio(kaavio, rivit)).catch(console.error);
-
-const kaavioLatest = luoKaavio('kaavioLatest');
-haeLatest().then(rivit => paivitaKaavio(kaavioLatest, rivit)).catch(console.error);
-    
-// --- Automaattinen päivitys vain kun välilehti näkyvissä ---
-let autoTimer = null;
-
-function startAutoUpdate() {
-    if (autoTimer === null) {
-        autoTimer = setInterval(() => {
-            haeLatest()
-                .then(rivit => paivitaKaavio(kaavioLatest, rivit))
-                .catch(console.error);
-        }, 5000); // 5 sekuntia
-        console.log("Automaattinen päivitys käynnistetty");
-    }
-}
-
-function stopAutoUpdate() {
-    if (autoTimer !== null) {
-        clearInterval(autoTimer);
-        autoTimer = null;
-        console.log("Automaattinen päivitys pysäytetty");
-    }
-}
-
-document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") {
-        startAutoUpdate();
-    } else {
-        stopAutoUpdate();
-    }
-});
-
-// Käynnistä päivitys kun sivu avataan
-startAutoUpdate();
-</script>
-<!--Funktiot loppuu-->
 </body>
 </html>
