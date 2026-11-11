@@ -8,4 +8,8 @@
 
 // API KEY
 #define API_KEY "YOUR_APIKEY"
+
+//Backend-Server address for measurements
+#define SERVER_ADDRESS "YOUR_BACKEND_SERVER_IP_OR_DOMAIN-ADDRESS"
+
 #endif // WIFI_CONFIG_H
