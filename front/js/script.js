@@ -106,7 +106,7 @@ async function haeLatest(){ //kaaviolatest fetch
   if(!latest.ok) throw new Error('Virhe: ' + latest.status);
   const data2 = await latest.json();
   console.log(data2);
-  return data2; //Täällä voi tulla virhe jos saatu data ei ole taulukkona -> funktio joka muuttaa datan taulukoksi. sama haeData()
+  return data2; //Täällä voi tulla virhe kun saatu data ei ole taulukkona -> funktio joka muuttaa datan taulukoksi.
 }
 
     // --- Kaavioiden päivitys ---
