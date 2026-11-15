@@ -5,9 +5,26 @@ import { addMeasurement, getAllMeasurements, getLatestMeasurement } from './stor
 import { getSettings, updateSettings } from './storage/settings.store';
 import { settingsSchema } from './schemas/settings.schema';
 import 'dotenv/config';
+import cors from 'cors';
 
 const app: Express = express();
 const port = 3000;
+
+// SSE (Server-Sent Events) clients set
+const clients = new Set<Response>();
+
+// SSE helper function
+function broadcastMeasurement(measurement: Measurement) {
+    const stringMeasurement = JSON.stringify(measurement);
+    clients.forEach(client => {
+        client.write(`event: measurement\ndata: ${stringMeasurement}\n\n`);
+    });
+}
+
+// Enable CORS for the whitelisted origins
+app.use(cors({
+    origin: '*'
+}));
 
 // Middleware to parse JSON request bodies
 app.use(express.json());
@@ -48,6 +65,21 @@ app.get('/api/measurements/latest', (req: Request, res: Response) => {
     }
 });
 
+// Endpoint to stream measurements to the client
+app.get('/api/measurements/stream', (req: Request, res: Response) => {
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.set("Connection", "keep-alive");
+    clients.add(res);
+    res.write(": connected\n\n");
+    res.on("close", () => {
+        clients.delete(res);
+        console.log(clients.size, "clients connected");
+    });
+    console.log(clients.size, "clients connected");
+});
+
+
 // Endpoint to receive measurements from the device
 // We use zod to validate the incoming data against the measurementSchema
 // We temporary store the measurements in an array, but in a real application we would store them in a database
@@ -73,6 +105,7 @@ app.post('/api/measurements', (req: Request, res: Response) => {
         console.log("Received measurement:", measurement);
 
         addMeasurement(measurement);
+        broadcastMeasurement(measurement);
         res.status(201).json({
             "message": "Measurements received",
             "success": true

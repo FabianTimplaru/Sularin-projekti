@@ -2,10 +2,11 @@
 #include "pico/stdlib.h"
 #include "hardware/adc.h"
 #include "pico/cyw43_arch.h"
-#include "lwip/netif.h"     // Tarvitaan IP-osoitteen lukemiseen
+#include "lwip/netif.h" // Tarvitaan IP-osoitteen lukemiseen
 #include "lwip/tcp.h"
-#include "wifi_config.h"    // Omat salasanat
+#include "wifi_config.h" // Omat salasanat
 #include "dht11.h"
+#include <string.h>
 
 // Määritellään pinnit
 #define POWER_PIN 15
@@ -16,36 +17,40 @@
 
 float calculate_moisture(uint16_t adc);
 // 1. Tämä funktio laukeaa automaattisesti, kun backend vastaa (Kuitti!)
-static err_t http_recv_cb(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err) {
-    if (p == NULL) { // Yhteys suljettiin palvelimen toimesta
+static err_t http_recv_cb(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err)
+{
+    if (p == NULL)
+    { // Yhteys suljettiin palvelimen toimesta
         tcp_close(tpcb);
         return ERR_OK;
     }
     printf("Vastaus backendilta:\n%.*s\n", p->len, (char *)p->payload);
-    
+
     // Tässä voit myöhemmin käyttää strstr-funktiota kuitin tai raja-arvon etsimiseen
-    
+
     tcp_recved(tpcb, p->tot_len); // Kerrotaan verkkopiirille, että data otettiin vastaan
     pbuf_free(p);                 // Vapautetaan muisti
     return ERR_OK;
 }
 
 // 2. Tämä funktio laukeaa automaattisesti, kun yhteys backendiin on auki
-static err_t http_connected_cb(void *arg, struct tcp_pcb *tpcb, err_t err) {
-    if (err != ERR_OK) {
+static err_t http_connected_cb(void *arg, struct tcp_pcb *tpcb, err_t err)
+{
+    if (err != ERR_OK)
+    {
         printf("Yhteys backendiin epaonnistui!\n");
         return err;
     }
     char *request = (char *)arg; // Haetaan lähetettävä JSON-teksti
-    
+
     // Kerrotaan Picolle, mihin funktioon mennään, kun vastaus saapuu
-    tcp_recv(tpcb, http_recv_cb); 
-    
+    tcp_recv(tpcb, http_recv_cb);
+
     // Lähetetään HTTP POST -pyyntö matkaan
     tcp_write(tpcb, request, strlen(request), TCP_WRITE_FLAG_COPY);
     tcp_output(tpcb);
     printf("Data lahetetty!\n");
-    
+
     return ERR_OK;
 }
 int main()
@@ -53,10 +58,7 @@ int main()
     // Alustetaan standarditulostus (mahdollistaa printf-käytön USB:n kautta)
     stdio_init_all();
 
-
-
-
-//DHT11
+    // DHT11
     dht11_data_t dht;
 
     // Alustetaan virransyöttöpinni (GP15)
@@ -79,15 +81,16 @@ int main()
 
     printf("DIY Mullan Kosteusmittari (Pico 2W) käynnistetty!\n");
 
-    //LED raja-arvo
+    // LED raja-arvo
     bool led_state = false;
 
-// Oletusarvo, jos backendistä ei ole vielä saatu asetuksia
+    // Oletusarvo, jos backendistä ei ole vielä saatu asetuksia
     float moisture_threshold = 30.0f;
     printf("Kaynnistetaan Wi-Fi testi...\n");
 
     // Alustetaan Pico W:n CYW43-verkkopiiri
-    if (cyw43_arch_init()) {
+    if (cyw43_arch_init())
+    {
         printf("Virhe: Wi-Fi-piirin alustus epaonnistui!\n");
         return -1;
     }
@@ -99,7 +102,8 @@ int main()
 
     // Yritetään yhdistää verkkoon (aikakatkaisu 10 sekuntia eli 10000 ms)
     // CYW43_AUTH_WPA2_MIXED_PSK toimii lähes kaikissa nykyaikaisissa kotiverkoissa
-    if (cyw43_arch_wifi_connect_timeout_ms(WIFI_SSID, WIFI_PASSWORD, CYW43_AUTH_WPA2_MIXED_PSK, 10000)) {
+    if (cyw43_arch_wifi_connect_timeout_ms(WIFI_SSID, WIFI_PASSWORD, CYW43_AUTH_WPA2_MIXED_PSK, 10000))
+    {
         printf("Virhe: Verkkoon yhdistaminen epaonnistui.\n");
     }
 
@@ -109,7 +113,6 @@ int main()
     // netif_default on lwIP-kirjaston oletusverkkoliitäntä (eli Picon Wi-Fi)
     printf("IP-osoite: %s\n", ip4addr_ntoa(netif_ip4_addr(netif_default)));
 
-
     /* Yritetään hakea backendistä
 if (backend_connected)
 {
@@ -117,33 +120,29 @@ if (backend_connected)
 }
 */
 
-// Hystereesi
+    // Hystereesi
     const float hysteresis = 5.0f;
 
-float temp_sum = 0.0f;
-float humidity_sum = 0.0f;
-float moisture_sum = 0.0f;
-float adc_sum = 0.0f;
+    float temp_sum = 0.0f;
+    float humidity_sum = 0.0f;
+    float moisture_sum = 0.0f;
+    float adc_sum = 0.0f;
 
-int sample_count = 0;
+    int sample_count = 0;
 
     while (1)
     {
 
-
-
         // luetaan DHT11
         if (dht11_read(DHT11_PIN, &dht))
-    {
-        printf("Lampotila: %d C\n", dht.temperature);
-        printf("Ilmankosteus: %d %%\n", dht.humidity);
-    }
-    else
-    {
-        printf("DHT11 luku epaonnistui\n");
-    }
-
-
+        {
+            printf("Lampotila: %d C\n", dht.temperature);
+            printf("Ilmankosteus: %d %%\n", dht.humidity);
+        }
+        else
+        {
+            printf("DHT11 luku epaonnistui\n");
+        }
 
         // 1. Kytketään virta anturiin
         gpio_put(POWER_PIN, 1);
@@ -168,8 +167,6 @@ int sample_count = 0;
 
         sample_count++;
 
-
-     
         // LED päälle alle raja-arvon
         if (!led_state && moisture < moisture_threshold)
         {
@@ -189,60 +186,61 @@ int sample_count = 0;
         printf("Mullan kosteus (raaka-arvo): %d, Voltit %.2f V, Suhteellinen kosteus %.2f %%\n",
                raw_value, raw_value * conversion_factor, moisture);
 
-        //lasketaan 10 min keskiarvot
+        // lasketaan 10 min keskiarvot
         if (sample_count >= 10)
         {
-           int avg_temp = (int)(temp_sum / sample_count + 0.5f);
-           int avg_humidity = (int)(humidity_sum / sample_count + 0.5f);
-           int avg_adc = (int)(adc_sum / sample_count + 0.5f);
-           int avg_moisture = (int)(moisture_sum / sample_count + 0.5f);
-          
-         //JSON
-        printf("Lahetetaan tulosten keskiarvot...")
-        char json_body[200];
-        snprintf(json_body, sizeof(json_body),
-        "{\"temperature\":%d, \"airHumidity\":%d, \"rawAdc\":%d, \"moisture\":%d}\n",  
-        avg_temp,
-        avg_humidity,
-        avg_adc,
-        avg_moisture
-        ); 
-        HTTP POST -pyyntö
-        char http_request[400];
-        snprintf(http_request, sizeof(http_request),
-        "POST /api/measurements HTTP/1.1\r\n"
-        "Host: %s:3000\r\n"
-        "Content-Type: application/json\r\n"
-        "Content-Length: %d\r\n"
-        "Connection: close\r\n"
-        "\r\n"  
-        "%s",   
-        SERVER_ADDRESS, strlen(json_body), json_body);
-        // Avataan TCP-yhteys ja lähetetään data Raw API:lla
-        struct tcp_pcb *pcb = tcp_new();
-        if (pcb != NULL) {
-            ip_addr_t server_ip;
-            ipaddr_aton(SERVER_ADDRESS, &server_ip);
-            
-            // Välitetään http_request-merkkijono takaisinkutsufunktioille (arg)
-            tcp_arg(pcb, http_request); 
-            
-            // Yhdistetään IP-osoitteeseen porttiin 3000
-            tcp_connect(pcb, &server_ip, 3000, http_connected_cb);
-        } else {
-            printf("Virhe: Ei voitu luoda tcp_pcb-oliota.\n");
+            int avg_temp = (int)(temp_sum / sample_count + 0.5f);
+            int avg_humidity = (int)(humidity_sum / sample_count + 0.5f);
+            int avg_adc = (int)(adc_sum / sample_count + 0.5f);
+            int avg_moisture = (int)(moisture_sum / sample_count + 0.5f);
+
+            // JSON
+            printf("Lahetetaan tulosten keskiarvot...");
+            char json_body[200];
+            snprintf(json_body, sizeof(json_body),
+                     "{\"temperature\":%d, \"airHumidity\":%d, \"rawAdc\":%d, \"moisture\":%d}\n",
+                     avg_temp,
+                     avg_humidity,
+                     avg_adc,
+                     avg_moisture);
+            // HTTP POST - pyyntö
+            char http_request[400];
+            snprintf(http_request, sizeof(http_request),
+                     "POST /api/measurements HTTP/1.1\r\n"
+                     "Host: %s:3000\r\n"
+                     "Content-Type: application/json\r\n"
+                     "Content-Length: %d\r\n"
+                     "Connection: close\r\n"
+                     "\r\n"
+                     "%s",
+                     SERVER_ADDRESS, strlen(json_body), json_body);
+            // Avataan TCP-yhteys ja lähetetään data Raw API:lla
+            struct tcp_pcb *pcb = tcp_new();
+            if (pcb != NULL)
+            {
+                ip_addr_t server_ip;
+                ipaddr_aton(SERVER_ADDRESS, &server_ip);
+
+                // Välitetään http_request-merkkijono takaisinkutsufunktioille (arg)
+                tcp_arg(pcb, http_request);
+
+                // Yhdistetään IP-osoitteeseen porttiin 3000
+                tcp_connect(pcb, &server_ip, 3000, http_connected_cb);
+            }
+            else
+            {
+                printf("Virhe: Ei voitu luoda tcp_pcb-oliota.\n");
+            }
+
+            temp_sum = 0.0f;
+            humidity_sum = 0.0f;
+            moisture_sum = 0.0f;
+            adc_sum = 0.0f;
+
+            sample_count = 0;
         }
 
-    temp_sum = 0.0f;
-    humidity_sum = 0.0f;
-    moisture_sum = 0.0f;
-    adc_sum = 0.0f;
-
-    sample_count = 0;
-}
-
-
-               // Odotetaan 2 sekuntia ennen seuraavaa mittausta
+        // Odotetaan 2 sekuntia ennen seuraavaa mittausta
         sleep_ms(2000);
     }
 }
