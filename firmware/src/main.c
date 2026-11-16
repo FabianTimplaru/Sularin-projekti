@@ -6,6 +6,9 @@
 #include "lwip/tcp.h"
 #include "wifi_config.h"    // Omat salasanat
 #include "dht11.h"
+#include "pico_led.h"
+#include "bootsel_button.h"
+
 
 // Määritellään pinnit
 #define POWER_PIN 15
@@ -22,7 +25,7 @@ static err_t http_recv_cb(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t
         return ERR_OK;
     }
     printf("Vastaus backendilta:\n%.*s\n", p->len, (char *)p->payload);
-    
+    led_play_sequence(SEQ_BACKEND_OK);
     // Tässä voit myöhemmin käyttää strstr-funktiota kuitin tai raja-arvon etsimiseen
     
     tcp_recved(tpcb, p->tot_len); // Kerrotaan verkkopiirille, että data otettiin vastaan
@@ -52,8 +55,14 @@ int main()
 {
     // Alustetaan standarditulostus (mahdollistaa printf-käytön USB:n kautta)
     stdio_init_all();
+    
+    // Määritetään ajastukset toiminnoille:
+    uint32_t last_sensor_read_time = 0;
+    const uint32_t sensor_wait_time = 2000; // 2 sekuntia
 
-
+    bool button_was_pressed = false;
+    uint32_t button_press_start_time = 0;
+    bool five_sec_triggered = false;
 
 
 //DHT11
@@ -75,6 +84,7 @@ int main()
     gpio_put(LED_PIN, 0);
 
     // Annetaan USB-yhteydelle aikaa aueta ennen tulostelua
+    led_play_sequence(SEQ_STARTUP);
     sleep_ms(2000);
 
     printf("DIY Mullan Kosteusmittari (Pico 2W) käynnistetty!\n");
@@ -102,12 +112,14 @@ int main()
     if (cyw43_arch_wifi_connect_timeout_ms(WIFI_SSID, WIFI_PASSWORD, CYW43_AUTH_WPA2_MIXED_PSK, 10000)) {
         printf("Virhe: Verkkoon yhdistaminen epaonnistui.\n");
     }
+    else {
 
     printf("Yhdistetty onnistuneesti!\n");
-
+    led_play_sequence(SEQ_ONLINE);
     // Luetaan ja tulostetaan laitteen saama IP-osoite
     // netif_default on lwIP-kirjaston oletusverkkoliitäntä (eli Picon Wi-Fi)
     printf("IP-osoite: %s\n", ip4addr_ntoa(netif_ip4_addr(netif_default)));
+}
 
 
     /* Yritetään hakea backendistä
@@ -127,11 +139,46 @@ float adc_sum = 0.0f;
 
 int sample_count = 0;
 
-    while (1)
-    {
+while (1) {
+    // Määritetään tämän hetkinen aika
+    uint32_t now = to_ms_since_boot(get_absolute_time());
+    
+    //  Luetaan BOOTSEL-painikkeen tila
+    bool is_pressed = read_bootsel_button();
+    led_set_continuous_long(is_pressed);
 
+    if (is_pressed && !button_was_pressed) {
+        printf("BOOTSEL-painike painettu!\n");
+        //TÄHÄN VOIT LISÄTÄ NAPIN TOIMINNON <--
+        // Esimerkiksi: pakota välitön lähetys tai tulosta tilatietoja
+        // --> T
+        button_was_pressed = true;
+        button_press_start_time = now;
+        five_sec_triggered = false;
+    } 
+    else if (is_pressed && button_was_pressed) {
+        if (!five_sec_triggered && (now-button_press_start_time >= 5000)) {
+            printf("Painiketta pidetty pohjassa 5 sekuntia.\n");
 
+            five_sec_triggered = true;
+        }
+    }
+    else if (!is_pressed && button_was_pressed) {
+        if (five_sec_triggered) {
+            printf("Painiketta pidettiin tosiaan viisi sekuntia pohjassa ja painike vapautettu");
+        }
+        else {
+        printf("BOOTSEL-painike vapautettu.\n");
+        }
+        button_was_pressed = false;
+        
+    }
 
+    led_sequencer_update(now);
+
+    // Rinnakkaisuusajo mittaukselle:
+    if (now - last_sensor_read_time >= sensor_wait_time) {
+        last_sensor_read_time = now;
         // luetaan DHT11
         if (dht11_read(DHT11_PIN, &dht))
     {
@@ -198,16 +245,18 @@ int sample_count = 0;
            int avg_moisture = (int)(moisture_sum / sample_count + 0.5f);
           
          //JSON
-        printf("Lahetetaan tulosten keskiarvot...")
+        printf("Lahetetaan tulosten keskiarvot...");
+        led_play_sequence(SEQ_WIFI_SEND);
         char json_body[200];
         snprintf(json_body, sizeof(json_body),
-        "{\"temperature\":%d, \"airHumidity\":%d, \"rawAdc\":%d, \"moisture\":%d}\n",  
+        "{\"token\":\"%s\", \"temp\":%d, \"airHumidity\":%d, \"soilMoisture_adc\":%d, \"soilMoisture_percent\":%d}",  
+        API_KEY,
         avg_temp,
         avg_humidity,
         avg_adc,
         avg_moisture
         ); 
-        HTTP POST -pyyntö
+        // HTTP-POST -pyyntö
         char http_request[400];
         snprintf(http_request, sizeof(http_request),
         "POST /api/measurements HTTP/1.1\r\n"
@@ -232,7 +281,7 @@ int sample_count = 0;
         } else {
             printf("Virhe: Ei voitu luoda tcp_pcb-oliota.\n");
         }
-
+    
     temp_sum = 0.0f;
     humidity_sum = 0.0f;
     moisture_sum = 0.0f;
@@ -240,10 +289,10 @@ int sample_count = 0;
 
     sample_count = 0;
 }
+}
 
-
-               // Odotetaan 2 sekuntia ennen seuraavaa mittausta
-        sleep_ms(2000);
+               // "lepoaika"
+        sleep_ms(1);
     }
 }
 
