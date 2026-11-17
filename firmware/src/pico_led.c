@@ -3,11 +3,14 @@
 #include "pico/cyw43_arch.h"
 #include <string.h>
 
-static char current_seq[32] = {0};
+static char current_seq[64] = {0};
 static int seq_index = 0;
 static int tick_counter = 0;
 static bool in_gap = false;
 static bool continuous_mode = false;
+
+static int on_ticks = 0;
+static int gap_ticks = 0;
 
 static uint32_t last_led_tick_time = 0;
 static const uint32_t led_tick_interval = 100; // 100 ms per askel
@@ -50,9 +53,9 @@ void led_sequencer_update(uint32_t now_ms) {
     // 1. Jos nappi on pohjassa, toistetaan pitkää pulssia (400 ms päällä, 200 ms pois)
     if (continuous_mode) {
         tick_counter++;
-        if (tick_counter <= 4) {
+        if (tick_counter <= 3) {
             set_internal_led(true);
-        } else if (tick_counter <= 6) {
+        } else if (tick_counter <= 4) {
             set_internal_led(false);
         } else {
             tick_counter = 0;
@@ -66,25 +69,51 @@ void led_sequencer_update(uint32_t now_ms) {
         return;
     }
 
-    // 3. Suoritetaan nykyistä merkkiä ('0' = 100 ms, '1' = 400 ms, tauko = 200 ms)
-    char c = current_seq[seq_index];
-    int on_ticks = (c == '1') ? 4 : 1;
-    int gap_ticks = 2;
-
+    // Morse-käsittely
     if (!in_gap) {
+        char c = current_seq[seq_index];
+
+        // Määritetään merkin päälläoloaika ja sitä seuraava tauko
+        if (c == '.') {
+            on_ticks = 1;
+            gap_ticks = 1;
+        } else if (c == '-') {
+            on_ticks = 3;
+            gap_ticks = 1;
+        } else if (c == ' ') {
+            on_ticks = 0;
+            gap_ticks = 3;
+        } else if (c == '/') {
+            on_ticks = 0;
+            gap_ticks = 7;
+        } else {
+            // Tuntematon merkki, ohitetaan 1 yksikön tauolla
+            on_ticks = 0;
+            gap_ticks = 1;
+        }
+    
+
+    if (on_ticks > 0) {
         set_internal_led(true);
         tick_counter++;
         if (tick_counter >= on_ticks) {
             in_gap = true;
             tick_counter = 0;
         }
+     } else {
+            // Pelkkä tauko (tuntematonm merkki, välilyönti tai /), siirrytään suoraan gap-vaiheeseen
+            set_internal_led(false);
+            in_gap = true;
+            tick_counter = 0;
+        }
     } else {
+        // Gap-vaihe (LED sammutettuna tauon ajan)
         set_internal_led(false);
         tick_counter++;
         if (tick_counter >= gap_ticks) {
             in_gap = false;
             tick_counter = 0;
             seq_index++;
-        }
     }
+}
 }

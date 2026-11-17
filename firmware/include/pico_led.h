@@ -3,12 +3,12 @@
 #include <stdint.h>
 #include <stdbool.h>
 // LED:n vilkutus sekvenssit
-#define SEQ_WIFI_SEND   "000000" // 6 lyhyttä
-#define SEQ_BACKEND_OK  "111"    // 3 pitkää
-#define SEQ_BACKEND_ERR "0001"   // 3 lyhyttä, 1 pitkä
-#define SEQ_STARTUP "11"
-#define SEQ_ONLINE "10001"
-#define SEQ_OFFLINE "111111"
+#define SEQ_WIFI_SEND   "... ..." // sending sets= SS
+#define SEQ_BACKEND_OK  "---"    // 3 pitkää OK=O
+#define SEQ_BACKEND_ERR "..-."   // Fail=F
+#define SEQ_STARTUP ".... .." // HI
+#define SEQ_ONLINE "-.-."
+#define SEQ_OFFLINE "-----" // 0
 
 
 // Kytkee Pico W:n sisäisen LEDin päälle (true) tai pois (false)

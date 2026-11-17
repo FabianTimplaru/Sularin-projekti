@@ -6,10 +6,10 @@
 #include "lwip/tcp.h"
 #include "wifi_config.h" // Omat salasanat
 #include "dht11.h"
+#include <string.h>
+#include <stdlib.h>
 #include "pico_led.h"
 #include "bootsel_button.h"
-#include <string.h>
-
 
 // Määritellään pinnit
 #define POWER_PIN 15
@@ -18,6 +18,13 @@
 #define LED_PIN 13
 #define DHT11_PIN 14
 
+static volatile uint32_t network_request_start_time = 0;
+static volatile bool is_sending = false;
+static volatile bool waiting_for_settings = false;
+static volatile bool trigger_fetch = false;
+float moisture_threshold = 30.0f;
+void fetch_settings(void);
+
 float calculate_moisture(uint16_t adc);
 // 1. Tämä funktio laukeaa automaattisesti, kun backend vastaa (Kuitti!)
 static err_t http_recv_cb(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err)
@@ -25,23 +32,59 @@ static err_t http_recv_cb(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t
     if (p == NULL)
     { // Yhteys suljettiin palvelimen toimesta
         tcp_close(tpcb);
+        is_sending = false;
         return ERR_OK;
     }
-    printf("Vastaus backendilta:\n%.*s\n", p->len, (char *)p->payload);
-    led_play_sequence(SEQ_BACKEND_OK);
-    // Tässä voit myöhemmin käyttää strstr-funktiota kuitin tai raja-arvon etsimiseen
 
+    char buffer[512];
+    uint16_t copy_len = p->len < (sizeof(buffer) - 1) ? p->len : (sizeof(buffer)-1);
+    memcpy(buffer, p->payload, copy_len);
+    buffer[copy_len] = '\0';
+
+    printf("Vastaus backendilta:\n%s\n", buffer);
+    const char *key = "\"minMoistureThreshold\":";
+    char *threshold_pos = strstr(buffer, key);
+
+if (threshold_pos != NULL)
+{
+    threshold_pos += strlen(key);
+    moisture_threshold = atof(threshold_pos);
+    printf("Backendin raja-arvo paivittyi: %.1f %%\n",moisture_threshold);
+} 
+
+if (waiting_for_settings)
+{
+    waiting_for_settings = false;
+}
+else
+{
+    // Käsketään pääsilmukkaa hakemaan asetukset myöhemmin!
+    trigger_fetch = true; 
+}
+
+
+    led_play_sequence(SEQ_BACKEND_OK);
     tcp_recved(tpcb, p->tot_len); // Kerrotaan verkkopiirille, että data otettiin vastaan
     pbuf_free(p);                 // Vapautetaan muisti
     return ERR_OK;
 }
 
-// 2. Tämä funktio laukeaa automaattisesti, kun yhteys backendiin on auki
+static void http_err_cb(void *arg, err_t err)
+{
+    printf("\n[VERKKOVIRHE] LwIP-virhe (koodi %d)! Yhteys katkesi.\n", err);
+    is_sending = false;
+    waiting_for_settings = false;
+    led_play_sequence(SEQ_BACKEND_ERR); // "0001"
+}
+
+// Tämä funktio laukeaa automaattisesti, kun yhteys backendiin on auki
 static err_t http_connected_cb(void *arg, struct tcp_pcb *tpcb, err_t err)
 {
     if (err != ERR_OK)
     {
-        printf("Yhteys backendiin epaonnistui!\n");
+        printf("Yhteys backendiin epaonnistui! kättelyssä!\n");
+        is_sending = false;
+        waiting_for_settings = false;
         return err;
     }
     char *request = (char *)arg; // Haetaan lähetettävä JSON-teksti
@@ -56,14 +99,71 @@ static err_t http_connected_cb(void *arg, struct tcp_pcb *tpcb, err_t err)
 
     return ERR_OK;
 }
+
+//GET/api/settings 
+void fetch_settings()
+{
+    waiting_for_settings = true;
+    is_sending = true;
+
+    network_request_start_time = to_ms_since_boot(get_absolute_time());
+
+    static char http_request[200];
+
+    snprintf(http_request,
+             sizeof(http_request),
+             "GET /api/settings HTTP/1.1\r\n"
+             "Host: %s:3000\r\n"
+             "Connection: close\r\n"
+             "\r\n",
+             SERVER_ADDRESS);
+    cyw43_arch_lwip_begin();
+
+    struct tcp_pcb *pcb = tcp_new();
+
+    if (pcb != NULL)
+    {
+        ip_addr_t server_ip;
+        ipaddr_aton(SERVER_ADDRESS, &server_ip);
+
+        tcp_arg(pcb, http_request);
+        tcp_err(pcb, http_err_cb);
+
+        tcp_connect(pcb,
+                    &server_ip,
+                    3000,
+                    http_connected_cb);
+
+        printf("Haetaan asetukset backendilta...\n");
+    } 
+    else // LISÄÄ TÄMÄ
+    {
+        printf("Virhe: Ei voitu luoda tcp_pcb-oliota asetusten hakuun.\n");
+        is_sending = false;
+        waiting_for_settings = false;
+    }
+    cyw43_arch_lwip_end();
+}
+
+
+
+
 int main()
 {
     // Alustetaan standarditulostus (mahdollistaa printf-käytön USB:n kautta)
     stdio_init_all();
     
+    // Alustetaan Pico W:n CYW43-verkkopiiri
+    if (cyw43_arch_init())
+    {
+        printf("Virhe: Wi-Fi-piirin alustus epaonnistui!\n");
+        return -1;
+    }
+
     // Määritetään ajastukset toiminnoille:
     uint32_t last_sensor_read_time = 0;
     const uint32_t sensor_wait_time = 2000; // 2 sekuntia
+    const uint32_t sensor_sample_count = 10; // Kuinka monta tulosta kerätään,ennen kuin lähetetään tiedot backendille
 
     bool button_was_pressed = false;
     uint32_t button_press_start_time = 0;
@@ -90,7 +190,11 @@ int main()
 
     // Annetaan USB-yhteydelle aikaa aueta ennen tulostelua
     led_play_sequence(SEQ_STARTUP);
-    sleep_ms(2000);
+    uint32_t wait_start = to_ms_since_boot(get_absolute_time());
+    while (to_ms_since_boot(get_absolute_time())- wait_start < 2000) {
+        led_sequencer_update(to_ms_since_boot(get_absolute_time()));
+        sleep_ms(1);
+    }
 
     printf("DIY Mullan Kosteusmittari (Pico 2W) käynnistetty!\n");
 
@@ -98,15 +202,10 @@ int main()
     bool led_state = false;
 
     // Oletusarvo, jos backendistä ei ole vielä saatu asetuksia
-    float moisture_threshold = 30.0f;
-    printf("Kaynnistetaan Wi-Fi testi...\n");
+    //float moisture_threshold = 30.0f;
+    printf("Alustetaan Wi-Fi-piiri..\n");
 
-    // Alustetaan Pico W:n CYW43-verkkopiiri
-    if (cyw43_arch_init())
-    {
-        printf("Virhe: Wi-Fi-piirin alustus epaonnistui!\n");
-        return -1;
-    }
+    
 
     // Asetetaan piiri Station-tilaan (yhdistää reitittimeen, ei luo omaa verkkoa)
     cyw43_arch_enable_sta_mode();
@@ -128,12 +227,10 @@ int main()
     printf("IP-osoite: %s\n", ip4addr_ntoa(netif_ip4_addr(netif_default)));
 }
 
-    /* Yritetään hakea backendistä
-if (backend_connected)
-{
-    moisture_threshold = backend_threshold;
-}
-*/
+//GET /api/ settings (raja arvo )
+
+trigger_fetch = true;
+
 
     // Hystereesi
     const float hysteresis = 5.0f;
@@ -152,6 +249,11 @@ while (1) {
     //  Luetaan BOOTSEL-painikkeen tila
     bool is_pressed = read_bootsel_button();
     led_set_continuous_long(is_pressed);
+    
+    if (trigger_fetch && !is_sending) {
+            trigger_fetch = false;
+            fetch_settings();
+        }
 
     if (is_pressed && !button_was_pressed) {
         printf("BOOTSEL-painike painettu!\n");
@@ -171,7 +273,7 @@ while (1) {
     }
     else if (!is_pressed && button_was_pressed) {
         if (five_sec_triggered) {
-            printf("Painiketta pidettiin tosiaan viisi sekuntia pohjassa ja painike vapautettu");
+            printf("Painiketta pidettiin tosiaan viisi sekuntia pohjassa ja painike vapautettu.\n");
         }
         else {
         printf("BOOTSEL-painike vapautettu.\n");
@@ -181,6 +283,15 @@ while (1) {
     }
 
     led_sequencer_update(now);
+
+    // Onko verkko lukittuna yli 15 sekuntia --> Pakotetaan se auki
+    if (is_sending && (now - network_request_start_time >= 15000)) {
+        printf("\n[TIMEOUT] Backend ei vastannut 15 sekunnissa! Pakotetaan verkko auki uusia yrityksia varten.\n");
+        network_request_start_time = now;
+        is_sending = false;
+        waiting_for_settings = false;
+        led_play_sequence(SEQ_BACKEND_ERR);
+    }
 
     // Rinnakkaisuusajo mittaukselle:
     if (now - last_sensor_read_time >= sensor_wait_time) {
@@ -239,7 +350,7 @@ while (1) {
                raw_value, raw_value * conversion_factor, moisture);
 
         // lasketaan 10 min keskiarvot
-        if (sample_count >= 10)
+        if (sample_count >= sensor_sample_count)
         {
            int avg_temp = (int)(temp_sum / sample_count + 0.5f);
            int avg_humidity = (int)(humidity_sum / sample_count + 0.5f);
@@ -258,8 +369,11 @@ while (1) {
         avg_adc,
         avg_moisture
         ); 
+        if (!is_sending) { // Estä uusi lähetys jos edellinen on kesken
+            is_sending = true;
+            network_request_start_time = now;
         // HTTP-POST -pyyntö
-        char http_request[400];
+        static char http_request[400];
         snprintf(http_request, sizeof(http_request),
         "POST /api/measurements HTTP/1.1\r\n"
         "Host: %s:3000\r\n"
@@ -270,18 +384,23 @@ while (1) {
         "%s",   
         SERVER_ADDRESS, strlen(json_body), json_body);
         // Avataan TCP-yhteys ja lähetetään data Raw API:lla
+        cyw43_arch_lwip_begin();
         struct tcp_pcb *pcb = tcp_new();
         if (pcb != NULL) {
             ip_addr_t server_ip;
             ipaddr_aton(SERVER_ADDRESS, &server_ip);
-            
             // Välitetään http_request-merkkijono takaisinkutsufunktioille (arg)
-            tcp_arg(pcb, http_request); 
-            
+            tcp_arg(pcb, http_request);
+            tcp_err(pcb, http_err_cb); 
             // Yhdistetään IP-osoitteeseen porttiin 3000
             tcp_connect(pcb, &server_ip, 3000, http_connected_cb);
         } else {
             printf("Virhe: Ei voitu luoda tcp_pcb-oliota.\n");
+            is_sending = false;
+        }
+        cyw43_arch_lwip_end();
+    } else {
+            printf("Verkko varattu, ohitetaan lähetys...\n");
         }
     
     temp_sum = 0.0f;
