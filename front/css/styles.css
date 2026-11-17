@@ -203,10 +203,12 @@ body {
 
 /* === 7. Alatunniste === */
 #footer {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    border-top: 1px solid var(--border);
     margin-top: 32px;
-    padding: 16px 0;
-
-    text-align: right;
+    padding: 20px 0;
     font-size: 13px;
     color: var(--text-secondary);
 }
