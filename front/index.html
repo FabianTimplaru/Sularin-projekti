@@ -15,7 +15,8 @@
 
   <!-- === 1. Sivun otsikko === -->
   <div id="otsikko" class="otsikko">
-    <h1>Lämpötila & Kosteus</h1>
+    <img src="icons/leaf.svg" alt="" class="otsikkoIkoni">
+    <h1>ViherVahti</h1>
   </div>
 
   <!-- === 2. Mittausnäkymä === -->
@@ -26,6 +27,12 @@
       <!-- Nykyiset mittaukset -->
       <section class="nykyisetMittaukset">
         <h2>Viimeisimmät mittaukset</h2>
+        <!-- Mullankosteus -->
+        <div class="mittausKortti">
+          <span>Mullankosteus</span>
+          <strong id="arvoMullanKosteus">-- %</strong>
+        </div>
+
         <div class="mittausKortit">
           <!-- Lämpötila -->
           <div class="mittausKortti">
@@ -39,50 +46,54 @@
             <strong id="arvoIlmanKosteus">-- %</strong>
           </div>
 
-          <!-- Mullankosteus -->
-          <div class="mittausKortti">
-            <span>Mullankosteus</span>
-            <strong id="arvoMullanKosteus">-- %</strong>
+          <!-- === 3. LEDin raja-arvosäädin === -->
+          <div class="mittausKortti rajaKortti">
+            <label for="kosteusRajaSaadin">Mullankosteuden alaraja</label>
+            <div class="kosteusRajaSaadin">
+              <input type="range" min="10" max="50" value="50" class="slider" id="kosteusRajaSaadin">
+              <output id="rajaArvo" for="kosteusRajaSaadin">50 %</output>
+              <button id="rajaTallenna">Tallenna.</button>
+            </div>
           </div>
+
         </div>
       </section>
     </div>
 
     <!-- Oikea laatikko: mittaushistoria -->
-    <div class="kaavioLaatikko">
-      <!-- Mittausarvon valinta -->
-      <label for="mittausValinta">Mittausarvo:</label>
-      <select id="mittausValinta">
-        <option value="soilMoisture_percent">Mullan kosteus (%)</option>
-        <option value="temp">Lämpötila (°C)</option>
-        <option value="airHumidity">Ilmankosteus (%)</option>
-        <option value="soilMoisture_adc">ADC-raaka-arvo</option>
-      </select>
+    <div class="historiaLaatikko kaavioLaatikko">
+      <div class="kaavioValinnat">
+        <div class="valintaRyhma">
+          <!-- Mittausarvon valinta -->
+          <label for="mittausValinta">Mittausarvo:</label>
+          <select id="mittausValinta">
+            <option value="soilMoisture_percent">Mullan kosteus (%)</option>
+            <option value="temp">Lämpötila (°C)</option>
+            <option value="airHumidity">Ilmankosteus (%)</option>
+            <option value="soilMoisture_adc">ADC-raaka-arvo</option>
+          </select>
+        </div>
+        <div class="valintaRyhma">
+          <!-- Aikavälin valinta -->
+          <label for="aikavaliValinta">Aikaväli:</label>
+          <select id="aikavaliValinta">
+            <option value="paiva">Päivä</option>
+            <option value="kuukausi">Kuukausi</option>
+            <option value="vuosi">Vuosi</option>
+            <option value="kaikki">Kaikki</option>
+          </select>
 
-      <!-- Aikavälin valinta -->
-      <label for="aikavaliValinta">Aikaväli:</label>
-      <select id="aikavaliValinta">
-        <option value="paiva">Päivä</option>
-        <option value="kuukausi">Kuukausi</option>
-        <option value="vuosi">Vuosi</option>
-        <option value="kaikki">Kaikki</option>
-      </select>
-
+        </div>
+      </div>
+      <div class="kaavioSisalto">
+        <canvas id="historiaKaavio"></canvas>
+      </div>
       <!-- Historiakaavio -->
-      <canvas id="historiaKaavio"></canvas>
     </div>
 
   </div>
 
-  <!-- === 3. LEDin raja-arvosäädin === -->
-  <div class="rajalaatikko">
-    <label for="kosteusRajaSaadin">Raja-arvo Säädin LEDille?</label>
-    <div class="kosteusRajaSaadin">
-      <input type="range" min="10" max="50" value="50" class="slider" id="kosteusRajaSaadin">
-      <output id="rajaArvo" for="kosteusRajaSaadin">50 %</output>
-      <button id="rajaTallenna">Tallenna.</button>
-    </div>
-  </div>
+
 
   <!-- === 4. Alatunniste === -->
   <footer id="footer">©ProjektiRyhma</footer>

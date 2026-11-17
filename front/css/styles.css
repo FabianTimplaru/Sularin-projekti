@@ -27,9 +27,15 @@ body {
 
 /* === 2. Otsikko === */
 .otsikko {
-    margin-bottom: 30px;
-    padding-bottom: 20px;
-    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 20px;
+}
+
+.otsikkoIkoni {
+    width: 36px;
+    height: 36px;
 }
 
 .otsikko h1 {
@@ -122,25 +128,34 @@ body {
     outline-offset: 2px;
 }
 
+.kaavioValinnat {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.historiaLaatikko {
+    display: flex;
+    flex-direction: column;
+}
+
+.kaavioSisalto {
+    position: relative;
+    flex: 1;
+    min-height: 400px;
+    width: 100%;
+}
+
 #historiaKaavio {
+    position: absolute;
     display: block;
     width: 100% !important;
-    height: 280px !important;
-    margin-top: 12px;
+    height: 100% !important;
 }
 
 /* === 6. Kosteuden raja-arvosäädin === */
-.rajalaatikko {
-    margin-top: 24px;
-    padding: 24px;
-
-    background-color: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    box-shadow: 0 3px 12px rgba(38, 62, 45, 0.04);
-}
-
-.rajalaatikko label {
+.rajaKortti label {
     display: block;
     margin-bottom: 20px;
 
@@ -215,6 +230,10 @@ body {
     .kaavioLaatikko,
     .rajalaatikko {
         padding: 18px;
+    }
+
+    .kaavioValinnat {
+        grid-template-columns: 1fr;
     }
 
     .kosteusRajaSaadin {
