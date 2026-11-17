@@ -100,7 +100,26 @@ function luoKaavio(canvasId) {
           }
         },
         yArvo: {
-          position: 'left'
+          position: 'left',
+          ticks: {
+            callback: (value) => {
+              switch (mittausValinta.value) {
+                case 'soilMoisture_percent':
+                  return value + ' %';
+                case 'airHumidity':
+                  return value + ' %';
+                case 'temp':
+                  return value + ' °C';
+                case 'soilMoisture_adc':
+                  return value;
+              }
+            }
+          }
+        }
+      },
+      plugins: {
+        legend: {
+          display: false
         }
       }
     }
