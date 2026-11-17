@@ -1,31 +1,96 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fi">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kosteusanturi</title>
-    <link rel="stylesheet" href="css/styles.css">
+  <!-- Sivun perustiedot -->
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kosteusanturi</title>
+
+  <!-- Tyylit -->
+  <link rel="stylesheet" href="css/styles.css">
 </head>
+
 <body>
-    <div id="otsikko" class="otsikko"><h1>Lämpötila & Kosteus</h1></div>
-    <div class="kaaviot">
-      <div class="kaavioLaatikko"><canvas id="kaavio"></canvas>
+
+  <!-- === 1. Sivun otsikko === -->
+  <div id="otsikko" class="otsikko">
+    <h1>Lämpötila & Kosteus</h1>
+  </div>
+
+  <!-- === 2. Mittausnäkymä === -->
+  <div class="kaaviot">
+
+    <!-- Vasen laatikko: viimeisimmät mittaukset -->
+    <div class="kaavioLaatikko">
+      <!-- Nykyiset mittaukset -->
+      <section class="nykyisetMittaukset">
+        <h2>Viimeisimmät mittaukset</h2>
+        <div class="mittausKortit">
+          <!-- Lämpötila -->
+          <div class="mittausKortti">
+            <span>Lämpötila</span>
+            <strong id="arvoLampo">-- °C</strong>
+          </div>
+
+          <!-- Ilmankosteus -->
+          <div class="mittausKortti">
+            <span>Ilmankosteus</span>
+            <strong id="arvoIlmanKosteus">-- %</strong>
+          </div>
+
+          <!-- Mullankosteus -->
+          <div class="mittausKortti">
+            <span>Mullankosteus</span>
+            <strong id="arvoMullanKosteus">-- %</strong>
+          </div>
+        </div>
+      </section>
     </div>
-      <div class="kaavioLaatikko"><canvas id="kaavioLatest"></canvas>
+
+    <!-- Oikea laatikko: mittaushistoria -->
+    <div class="kaavioLaatikko">
+      <!-- Mittausarvon valinta -->
+      <label for="mittausValinta">Mittausarvo:</label>
+      <select id="mittausValinta">
+        <option value="soilMoisture_percent">Mullan kosteus (%)</option>
+        <option value="temp">Lämpötila (°C)</option>
+        <option value="airHumidity">Ilmankosteus (%)</option>
+        <option value="soilMoisture_adc">ADC-raaka-arvo</option>
+      </select>
+
+      <!-- Aikavälin valinta -->
+      <label for="aikavaliValinta">Aikaväli:</label>
+      <select id="aikavaliValinta">
+        <option value="paiva">Päivä</option>
+        <option value="kuukausi">Kuukausi</option>
+        <option value="vuosi">Vuosi</option>
+        <option value="kaikki">Kaikki</option>
+      </select>
+
+      <!-- Historiakaavio -->
+      <canvas id="historiaKaavio"></canvas>
     </div>
-    </div>
-      <div class="rajalaatikko">
-      
-      <label for="myRange">Raja-arvo Säädin LEDille?</label>
-      <div class="rajaSaadin">
-      <input type="range" min="10" max="50" value="50" class="slider" id="myRange">
-      <output id="rajaArvo" for="myRange">50 %</output>
+
+  </div>
+
+  <!-- === 3. LEDin raja-arvosäädin === -->
+  <div class="rajalaatikko">
+    <label for="kosteusRajaSaadin">Raja-arvo Säädin LEDille?</label>
+    <div class="kosteusRajaSaadin">
+      <input type="range" min="10" max="50" value="50" class="slider" id="kosteusRajaSaadin">
+      <output id="rajaArvo" for="kosteusRajaSaadin">50 %</output>
       <button id="rajaTallenna">Tallenna.</button>
-      </div>
     </div>
-    <footer id="footer">©ProjektiRyhma</footer>
-<script src="chart/chart.js"></script><!--Paikallinen chart, muuta tarvittaessa-->
-<script src="js/script.js"></script>
+  </div>
+
+  <!-- === 4. Alatunniste === -->
+  <footer id="footer">©ProjektiRyhma</footer>
+
+  <!-- === 5. Skriptit: Chart.js ennen sovelluskoodia === -->
+  <script src="chart/chart.js"></script><!--Paikallinen chart, muuta tarvittaessa-->
+  <script src="js/script.js"></script>
 
 </body>
+
 </html>
