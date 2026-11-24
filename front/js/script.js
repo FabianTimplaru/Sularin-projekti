@@ -1,10 +1,34 @@
-// === 1. Asetukset ja API-osoitteet ===
+// --- 1. Asetukset ja API-osoitteet ---
 const HISTORIA_URL = 'http://localhost:3000/api/measurements';
 const RAJA_URL = 'http://localhost:3000/api/settings';
 
-// === 2. Sovelluksen tila ===
+// --- 2. Sovelluksen tila ---
 let measurements = [];
-let minimiKosteus = 49;
+let minimiKosteus = 50;
+
+const MITTAUSVALI_MS = 10 * 60 * 1000;       // 10 min, muutettava jos picon mittausväli muuttuu
+const OFFLINE_RAJA_MS = MITTAUSVALI_MS * 2;  // 20 min, muutettava jos picon mittausväli muuttuu
+let palvelinOnline = false;
+
+function asetaTila(id, tila) {
+  const el = document.getElementById(id);
+  el.classList.toggle('online', tila === true);
+  el.classList.toggle('offline', tila === false);
+}
+
+function paivitaStatus() {
+  const viimeisin = measurements.at(-1);
+
+  if (!palvelinOnline) {
+    asetaTila('tilaLaite', null); // harmaatila
+  } else if (!viimeisin) {
+    asetaTila('tilaLaite', false);
+  } else {
+    const ika = Date.now() - new Date(viimeisin.timestamp).getTime();
+    asetaTila('tilaLaite', ika < OFFLINE_RAJA_MS);
+  }
+}
+setInterval(paivitaStatus, 30000);
 
 // === 3. Sivun HTML-elementit ===
 const kosteusRajaSaadin = document.getElementById('kosteusRajaSaadin');
@@ -222,12 +246,26 @@ function aloitaSSE() {
   const eventSource = new EventSource(
     'http://localhost:3000/api/measurements/stream'
   );
+
+  eventSource.addEventListener('open', () => {
+    palvelinOnline = true;
+    asetaTila('tilaPalvelin', true);
+    paivitaStatus();
+  });
+
+  eventSource.addEventListener('error', () => {
+    palvelinOnline = false;
+    asetaTila('tilaPalvelin', false);
+    paivitaStatus();
+  });
+
   eventSource.addEventListener('measurement', (event) => {
     const data = JSON.parse(event.data);
     console.log(data);
     measurements.push(data);
     paivitaHistoria();
     paivitaMittausKortit(data);
+    paivitaStatus();
   });
 }
 
@@ -240,6 +278,7 @@ haeData()
     if (lastMeasurement) {
       paivitaMittausKortit(lastMeasurement);
     }
+    paivitaStatus();
   })
   .catch(console.error)
   .finally(aloitaSSE);

@@ -1,8 +1,0 @@
-[
-  { "timestamp": "2026-11-12T08:00:00Z", "temp": 21.2, "airHumidity": 45.0, "soilMoisture_adc": 2322, "soilMoisture_percent": 58.9 },
-  { "timestamp": "2026-11-12T09:00:00Z", "temp": 21.8, "airHumidity": 46.5, "soilMoisture_adc": 2547, "soilMoisture_percent": 45.3 },
-  { "timestamp": "2026-11-12T10:00:00Z", "temp": 22.4, "airHumidity": 44.1, "soilMoisture_adc": 2366, "soilMoisture_percent": 56.7 },
-  { "timestamp": "2026-11-12T11:00:00Z", "temp": 22.9, "airHumidity": 43.2, "soilMoisture_adc": 1616, "soilMoisture_percent": 88.4 },
-  { "timestamp": "2026-11-12T12:00:00Z", "temp": 22.5, "airHumidity": 44.8, "soilMoisture_adc": 2402, "soilMoisture_percent": 54.9 },
-  { "timestamp": "2026-11-12T13:00:00Z", "temp": 21.9, "airHumidity": 47.3, "soilMoisture_adc": 2388, "soilMoisture_percent": 55.6 }
-]
