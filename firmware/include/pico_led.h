@@ -7,7 +7,7 @@
 #define SEQ_BACKEND_OK  "---"    // 3 pitkää OK=O
 #define SEQ_BACKEND_ERR "..-."   // Fail=F
 #define SEQ_STARTUP ".... .." // HI
-#define SEQ_ONLINE "-.-."
+#define SEQ_ONLINE "-.-." // C
 #define SEQ_OFFLINE "-----" // 0
 
 

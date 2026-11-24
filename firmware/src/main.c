@@ -161,13 +161,16 @@ int main()
     }
 
     // Määritetään ajastukset toiminnoille:
-    uint32_t last_sensor_read_time = 0;
+    
     const uint32_t sensor_wait_time = 2000; // 2 sekuntia
     const uint32_t sensor_sample_count = 10; // Kuinka monta tulosta kerätään,ennen kuin lähetetään tiedot backendille
+    bool first_send = true; // Ensimmäinen lähetys heti käynnistyessä, jotta voidana määrittää laite yhdistetyksi
 
     bool button_was_pressed = false;
     uint32_t button_press_start_time = 0;
     bool five_sec_triggered = false;
+   
+    uint32_t last_sensor_read_time = to_ms_since_boot(get_absolute_time());  // Määritetään viime mittaus tähän hetkeen, jotta varmasti saadaan DHT alustettua ennen mittauksia.
 
 
 //DHT11
@@ -232,6 +235,7 @@ int main()
 trigger_fetch = true;
 
 
+
     // Hystereesi
     const float hysteresis = 5.0f;
 
@@ -258,8 +262,6 @@ while (1) {
     if (is_pressed && !button_was_pressed) {
         printf("BOOTSEL-painike painettu!\n");
         //TÄHÄN VOIT LISÄTÄ NAPIN TOIMINNON <--
-        // Esimerkiksi: pakota välitön lähetys tai tulosta tilatietoja
-        // --> T
         button_was_pressed = true;
         button_press_start_time = now;
         five_sec_triggered = false;
@@ -350,14 +352,15 @@ while (1) {
                raw_value, raw_value * conversion_factor, moisture);
 
         // lasketaan 10 min keskiarvot
-        if (sample_count >= sensor_sample_count)
+        if (sample_count >= sensor_sample_count || first_send && sample_count >= 1)
         {
-           int avg_temp = (int)(temp_sum / sample_count + 0.5f);
-           int avg_humidity = (int)(humidity_sum / sample_count + 0.5f);
-           int avg_adc = (int)(adc_sum / sample_count + 0.5f);
-           int avg_moisture = (int)(moisture_sum / sample_count + 0.5f);
+            first_send = false;
+            int avg_temp = (int)(temp_sum / sample_count + 0.5f);
+            int avg_humidity = (int)(humidity_sum / sample_count + 0.5f);
+            int avg_adc = (int)(adc_sum / sample_count + 0.5f);
+            int avg_moisture = (int)(moisture_sum / sample_count + 0.5f);
           
-         //JSON
+        //JSON
         printf("Lahetetaan tulosten keskiarvot...");
         led_play_sequence(SEQ_WIFI_SEND);
         char json_body[200];
