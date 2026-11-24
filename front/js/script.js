@@ -6,8 +6,8 @@ const RAJA_URL = 'http://localhost:3000/api/settings';
 let measurements = [];
 let minimiKosteus = 50;
 
-const MITTAUSVALI_MS = 10 * 60 * 1000;       // 10 min, muutettava jos picon mittausväli muuttuu
-const OFFLINE_RAJA_MS = MITTAUSVALI_MS * 2;  // 20 min, muutettava jos picon mittausväli muuttuu
+const MITTAUSVALI_MS = 10 * 60 * 1000;       // 10 min
+const OFFLINE_RAJA_MS = 11 * 60 * 1000;  // 11 min
 let palvelinOnline = false;
 
 function asetaTila(id, tila) {
@@ -28,7 +28,7 @@ function paivitaStatus() {
     asetaTila('tilaLaite', ika < OFFLINE_RAJA_MS);
   }
 }
-setInterval(paivitaStatus, 30000);
+setInterval(paivitaStatus, 10000);
 
 // === 3. Sivun HTML-elementit ===
 const kosteusRajaSaadin = document.getElementById('kosteusRajaSaadin');
