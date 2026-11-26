@@ -9,6 +9,10 @@
 #define SEQ_STARTUP ".... .." // HI
 #define SEQ_ONLINE "-.-." // C
 #define SEQ_OFFLINE "-----" // 0
+#define SEQ_DRY "-.." // D
+#define SEQ_WET ".--" // W
+#define SEQ_SAVE "..." // S
+#define SEQ_LOAD ".-.." // L "LOAD", eli ladataan vanha arvo.
 
 
 // Kytkee Pico W:n sisäisen LEDin päälle (true) tai pois (false)

@@ -18,12 +18,30 @@
 #define LED_PIN 13
 #define DHT11_PIN 14
 
+// ADC-oletusarvot:
+#define DEFAULT_DRY_ADC 1342.0f
+#define DEFAULT_WET_ADC 3200.0f
+
 static volatile uint32_t network_request_start_time = 0;
 static volatile bool is_sending = false;
 static volatile bool waiting_for_settings = false;
 static volatile bool trigger_fetch = false;
 float moisture_threshold = 30.0f;
 void fetch_settings(void);
+// 1342 ADC on mitä realistisesti tarkottaa kuiva multa, ei multa jossa olisi 0g vettä
+// Kuiva ja märkä ADC (0% ja 100%) 
+float dry_adc = DEFAULT_DRY_ADC;
+float wet_adc = DEFAULT_WET_ADC;
+bool is_custom_calibrated = false;
+
+typedef enum {
+    STATE_NORMAL, // Normaalitoiminta
+    STATE_CALIBRATE_INIT, // siirtymä kalibrointitilaan. 5 sekuntia painiketta pohjassa normaalitilassa siirtää tänne. 10 sekuntia pohjassa resetoi ja siirrytään takaisin normaalitilaan.
+    STATE_CALIBRATE_DRY, // Odotetaan kuivan mullan kalibrointia
+    STATE_CALIBRATE_WET // Odotetaan märän mullan
+} system_state_t;
+
+system_state_t current_state = STATE_NORMAL;
 
 float calculate_moisture(uint16_t adc);
 // 1. Tämä funktio laukeaa automaattisesti, kun backend vastaa (Kuitti!)
@@ -49,7 +67,7 @@ if (threshold_pos != NULL)
 {
     threshold_pos += strlen(key);
     moisture_threshold = atof(threshold_pos);
-    printf("Backendin raja-arvo paivittyi: %.1f %%\n",moisture_threshold);
+    printf("Backendin raja-arvo paivittyi: %.1f %%\n\n",moisture_threshold);
 } 
 
 if (waiting_for_settings)
@@ -134,7 +152,7 @@ void fetch_settings()
                     3000,
                     http_connected_cb);
 
-        printf("Haetaan asetukset backendilta...\n");
+        printf("Haetaan asetukset backendilta... ");
     } 
     else // LISÄÄ TÄMÄ
     {
@@ -145,7 +163,14 @@ void fetch_settings()
     cyw43_arch_lwip_end();
 }
 
-
+// Mullankosteusanturin funktio
+uint16_t read_soil_adc(void) {
+    gpio_put(POWER_PIN, 1);
+    sleep_ms(10);
+    uint16_t raw_value = adc_read();
+    gpio_put(POWER_PIN, 0);
+    return raw_value;
+}
 
 
 int main()
@@ -169,9 +194,11 @@ int main()
     bool button_was_pressed = false;
     uint32_t button_press_start_time = 0;
     bool five_sec_triggered = false;
+    bool ten_sec_triggered = false;
    
     uint32_t last_sensor_read_time = to_ms_since_boot(get_absolute_time());  // Määritetään viime mittaus tähän hetkeen, jotta varmasti saadaan DHT alustettua ennen mittauksia.
-
+    uint32_t last_cal_blink_time = 0; // Määritetään vilkkumisaika kalibroinnissa.
+    uint32_t cal_state_enter_time = 0; // Määritetään kalibroinnin tilojen aloituksen
 
 //DHT11
     dht11_data_t dht;
@@ -246,49 +273,77 @@ trigger_fetch = true;
 
     int sample_count = 0;
 
+
 while (1) {
+
     // Määritetään tämän hetkinen aika
     uint32_t now = to_ms_since_boot(get_absolute_time());
     
     //  Luetaan BOOTSEL-painikkeen tila
     bool is_pressed = read_bootsel_button();
-    led_set_continuous_long(is_pressed);
+    led_set_continuous_long(is_pressed && !five_sec_triggered);
+    // Päivitetään led-sekvensserin tila
+    led_sequencer_update(now);
+
+    // Tunnista lyhyt painallus, 5 s painallus j 10 s painallus
+    bool short_press = false;
+    bool long_press = false;
+    bool reset_press = false;
+
+    if (is_pressed && !button_was_pressed) {
+        button_was_pressed = true;
+        button_press_start_time = now;
+        five_sec_triggered = false;
+        ten_sec_triggered = false;
+    }
+
+    else if (is_pressed && button_was_pressed) {
+        uint32_t held_time = now - button_press_start_time;
+
+        // 5 sekuntia pidetty pohjassa --> Kalibrointi
+        if (!five_sec_triggered && held_time >= 5000) {
+            five_sec_triggered = true;
+            long_press = true;
+        }
+        // 10 sekuntia pidetty pohjassa --> arvojen resetointi
+        if (!ten_sec_triggered && held_time >= 10000) {
+            ten_sec_triggered = true;
+            reset_press = true;
+        }    
+    }
+    else if (!is_pressed && button_was_pressed) {
+        // Lyhy painallus vain, jos kumpikaan pitkä raja ei lauennut
+        if (!five_sec_triggered && !ten_sec_triggered) {
+            short_press = true;
+        }
+        button_was_pressed = false;
+    }
+
     
+
+    // TILAKONE
+    switch (current_state) {
+
+        case STATE_NORMAL:
+        // Siirrytään kalibrointiin 5 s painalluksella
+        if (long_press) {
+            printf("\nSiirrytaan kalibrointitilaan.\n");
+            printf("10 sekuntia painiketta pohjassa palautetaan tehdasasetukset.\n");
+            current_state = STATE_CALIBRATE_INIT;
+            break;
+        }
+    
+    // Pääsilmukka "NORMAL_STATE"
+
     if (trigger_fetch && !is_sending) {
             trigger_fetch = false;
             fetch_settings();
         }
 
-    if (is_pressed && !button_was_pressed) {
-        printf("BOOTSEL-painike painettu!\n");
-        //TÄHÄN VOIT LISÄTÄ NAPIN TOIMINNON <--
-        button_was_pressed = true;
-        button_press_start_time = now;
-        five_sec_triggered = false;
-    } 
-    else if (is_pressed && button_was_pressed) {
-        if (!five_sec_triggered && (now-button_press_start_time >= 5000)) {
-            printf("Painiketta pidetty pohjassa 5 sekuntia.\n");
-
-            five_sec_triggered = true;
-        }
-    }
-    else if (!is_pressed && button_was_pressed) {
-        if (five_sec_triggered) {
-            printf("Painiketta pidettiin tosiaan viisi sekuntia pohjassa ja painike vapautettu.\n");
-        }
-        else {
-        printf("BOOTSEL-painike vapautettu.\n");
-        }
-        button_was_pressed = false;
-        
-    }
-
-    led_sequencer_update(now);
 
     // Onko verkko lukittuna yli 15 sekuntia --> Pakotetaan se auki
     if (is_sending && (now - network_request_start_time >= 15000)) {
-        printf("\n[TIMEOUT] Backend ei vastannut 15 sekunnissa! Pakotetaan verkko auki uusia yrityksia varten.\n");
+        printf("\n[TIMEOUT] Backend ei vastannut 15 sekunnissa! Pakotetaan verkko auki uusia yrityksia varten.\n\n");
         network_request_start_time = now;
         is_sending = false;
         waiting_for_settings = false;
@@ -309,18 +364,10 @@ while (1) {
             printf("DHT11 luku epaonnistui\n");
         }
 
-        // 1. Kytketään virta anturiin
-        gpio_put(POWER_PIN, 1);
-
-        // 2. Odotetaan hetki, jotta jännite tasaantuu
-        sleep_ms(10);
         // 12-bit conversion, assume max value == ADC_VREF == 3.3 V
         const float conversion_factor = 3.3f / (1 << 12);
-        // 3. Luetaan analoginen arvo (0 - 4095)
-        uint16_t raw_value = adc_read();
-
-        // 4. Sammutetaan virta heti elektrolyysin estämiseksi
-        gpio_put(POWER_PIN, 0);
+        // 3. Luetaan mullankosteusanturi-funktio
+        uint16_t raw_value = read_soil_adc();
 
         // Lasketaan arvot prosentteina
         float moisture = calculate_moisture(raw_value);
@@ -361,7 +408,7 @@ while (1) {
             int avg_moisture = (int)(moisture_sum / sample_count + 0.5f);
           
         //JSON
-        printf("Lahetetaan tulosten keskiarvot...");
+        printf("\nLahetetaan tulosten keskiarvot... ");
         led_play_sequence(SEQ_WIFI_SEND);
         char json_body[200];
         snprintf(json_body, sizeof(json_body),
@@ -414,10 +461,117 @@ while (1) {
     sample_count = 0;
 }
 }
+break;
 
-               // "lepoaika"
-        sleep_ms(1);
+case STATE_CALIBRATE_INIT:
+    if(!is_pressed){
+        printf("Aseta anturi KUIVAAN ja paina nappia\n");
+        printf("Siirry tallentamatta kuivaa arvoa painalla 5 sekuntia painiketta\n");
+            
+        led_play_sequence(SEQ_DRY);
+        last_cal_blink_time = now; // led-vilkku Ajastin käyntiin
+        cal_state_enter_time = now; // Timeout-ajastin käyntiin
+        current_state = STATE_CALIBRATE_DRY;
+        break;
     }
+    else if (now - last_cal_blink_time >= 500 && !reset_press) {
+                // Nopea syke 5-10 s välillä: "pidä vielä resettiin tai päästä irti"
+                led_play_sequence(".");
+                last_cal_blink_time = now;
+            }
+    if (reset_press) {
+        printf("Tehdasasetukset palautettu!\n");
+
+        // Palautetaan oletuskalibrointiarvot
+        is_custom_calibrated = false;
+        dry_adc = DEFAULT_DRY_ADC;
+        wet_adc = DEFAULT_WET_ADC;
+        printf("Kuiva: %.0f Märkä: %.0f \n\n", dry_adc, wet_adc);
+        led_play_sequence(SEQ_STARTUP);
+        // Nollataan mittaussummat ja palataan normaalitilaan
+        sample_count =0;
+        temp_sum = humidity_sum = moisture_sum = adc_sum = 0.0f;
+        last_sensor_read_time =now;
+        current_state = STATE_NORMAL;
+        network_request_start_time = now;
+    }
+    break;
+
+case STATE_CALIBRATE_DRY:
+    if (!is_pressed && (now - last_cal_blink_time >= 4000)) {
+                led_play_sequence(SEQ_DRY);
+                last_cal_blink_time = now;
+            }
+    if (!is_pressed && (now - cal_state_enter_time >= 10000)) {
+                printf("Kalibrointi aikakatkaistiin. Palataan normaaliin tilaan.\n");
+                led_play_sequence(SEQ_STARTUP);
+                sample_count = 0;
+                temp_sum = humidity_sum = moisture_sum = adc_sum = 0.0f;
+                last_sensor_read_time = now;
+                current_state = STATE_NORMAL;
+                network_request_start_time = now;
+                break;
+            }
+    if (long_press) {
+        printf("Arvoa ei tallennettu. kuiva-arvo on %.0f.\nAseta anturi MARKAAN ja paina nappia.\n", dry_adc);
+        printf("Lopeta kalibrointi tallentamatta markaa arvoa painalla 5 sekuntia painiketta.\n");
+        led_play_sequence(SEQ_LOAD);
+        cal_state_enter_time = now; 
+        last_cal_blink_time = now;
+        current_state = STATE_CALIBRATE_WET;
+    }
+    else if (short_press) {
+        dry_adc = (float)read_soil_adc();
+        printf("Kuiva arvo tallennettu %.0f!\nAseta anturi MARKAAN ja paina nappia.\n", dry_adc);
+        is_custom_calibrated = true;
+        led_play_sequence(SEQ_SAVE);
+        cal_state_enter_time = now; 
+        last_cal_blink_time = now;
+        current_state = STATE_CALIBRATE_WET;
+    }
+    break;
+
+case STATE_CALIBRATE_WET:
+    if (!is_pressed && (now - cal_state_enter_time >= 10000)) {
+                printf("Kalibrointi aikakatkaistiin. Palataan normaaliin tilaan.\n");
+                led_play_sequence(SEQ_STARTUP);
+                sample_count = 0;
+                temp_sum = humidity_sum = moisture_sum = adc_sum = 0.0f;
+                last_sensor_read_time = now;
+                current_state = STATE_NORMAL;
+                network_request_start_time = now;
+                break;
+    }
+    if (!is_pressed && (now - last_cal_blink_time >= 4000)) {
+                led_play_sequence(SEQ_WET);
+                last_cal_blink_time = now;
+            }
+
+    if (long_press || short_press) {
+    if (long_press) {
+        printf("Arvoa ei tallennettu. marka-arvo on %.0f.\n", wet_adc);
+        led_play_sequence(SEQ_LOAD);
+    }
+    else if (short_press) {
+        wet_adc = (float)read_soil_adc();
+        printf("Marka arvo tallennettu %.0f!\n", wet_adc);
+        is_custom_calibrated = true;
+        led_play_sequence(SEQ_SAVE);
+        
+    }
+    printf("Palataan takaisin normaaliin tilaan.\n\n");
+    
+    sample_count = 0;
+    temp_sum = humidity_sum = moisture_sum = adc_sum = 0.0f;
+    last_sensor_read_time = now;
+    current_state = STATE_NORMAL;
+    network_request_start_time = now;
+    }
+    break;
+        
+}
+sleep_ms(1);
+}
 }
 
 // Tämän funktion avulla saadaan arvot suhteelisena prosenttiarvona
@@ -429,17 +583,26 @@ float regression(float x)
 
 float calculate_moisture(uint16_t adc)
 {
-    // 1342 ADC on mitä realistisesti tarkottaa kuiva multa, ei multa jossa olisi 0g vettä
-    const float dry_adc = 1342.0f;
-    const float wet_adc = 3200.0f;
+
 
     if (adc <= dry_adc)
         return 0.0f;
 
     if (adc >= wet_adc)
         return 100.0f;
+    if (wet_adc <= dry_adc) 
+        return 0.0f;
 
-    float moisture = (regression(adc) - regression(dry_adc)) / (regression(wet_adc) - regression(dry_adc)) * 100.0f;
+    float moisture;
+    if(is_custom_calibrated) {
+        // Käyttäjäkalibrointi: Turvallinen lineaarinehn skaalaus koko ADC-alueelle
+        moisture = ((float)adc-(float)dry_adc) / ((float)wet_adc - (float) dry_adc) * 100.0f;
+    } else {
+
+    moisture = (regression(adc) - regression(dry_adc)) / (regression(wet_adc) - regression(dry_adc)) * 100.0f;
+    }
+    if (moisture< 0.0f) return 0.0f;
+    if (moisture > 100.0f) return 100.0f;
 
     return moisture;
 }

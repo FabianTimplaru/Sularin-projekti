@@ -36,10 +36,8 @@ void led_play_sequence(const char *seq) {
 void led_set_continuous_long(bool active) {
     if (continuous_mode != active) {
         continuous_mode = active;
-        tick_counter = 0;
-        if (!active) {
-            set_internal_led(false);
-        }
+        set_internal_led(true);
+        
     }
 }
 
@@ -52,14 +50,6 @@ void led_sequencer_update(uint32_t now_ms) {
 
     // 1. Jos nappi on pohjassa, toistetaan pitkää pulssia (400 ms päällä, 200 ms pois)
     if (continuous_mode) {
-        tick_counter++;
-        if (tick_counter <= 3) {
-            set_internal_led(true);
-        } else if (tick_counter <= 4) {
-            set_internal_led(false);
-        } else {
-            tick_counter = 0;
-        }
         return;
     }
 
