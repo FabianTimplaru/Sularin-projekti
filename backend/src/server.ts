@@ -1,4 +1,4 @@
-import express, { Express, Request, Response } from 'express';
+import express, { Express, NextFunction, Request, Response } from 'express';
 import { measurementSchema } from './schemas/measurement.schema';
 import type { Measurement } from './types/measurement';
 import { addMeasurement, getAllMeasurements, getLatestMeasurement } from './storage/measurement.store';
@@ -44,18 +44,18 @@ app.get('/api/status', (req: Request, res: Response) => {
 });
 
 // Endpoint to get the current settings
-app.get('/api/settings', (req: Request, res: Response) => {
-    res.status(200).json(getSettings());
+app.get('/api/settings', async (req: Request, res: Response) => {
+    res.status(200).json(await getSettings());
 });
 
 // Endpoint to get all measurements
-app.get('/api/measurements', (req: Request, res: Response) => {
-    res.status(200).json(getAllMeasurements());
+app.get('/api/measurements', async (req: Request, res: Response) => {
+    res.status(200).json(await getAllMeasurements());
 });
 
 // Endpoint to get the latest measurement
-app.get('/api/measurements/latest', (req: Request, res: Response) => {
-    const latestMeasurement = getLatestMeasurement();
+app.get('/api/measurements/latest', async (req: Request, res: Response) => {
+    const latestMeasurement = await getLatestMeasurement();
     if (latestMeasurement !== undefined) {
         res.status(200).json(latestMeasurement);
     } else {
@@ -82,8 +82,7 @@ app.get('/api/measurements/stream', (req: Request, res: Response) => {
 
 // Endpoint to receive measurements from the device
 // We use zod to validate the incoming data against the measurementSchema
-// We temporary store the measurements in an array, but in a real application we would store them in a database
-app.post('/api/measurements', (req: Request, res: Response) => {
+app.post('/api/measurements', async (req: Request, res: Response) => {
     const result = measurementSchema.safeParse(req.body);
 
     if (result.success) {
@@ -104,7 +103,7 @@ app.post('/api/measurements', (req: Request, res: Response) => {
 
         console.log("Received measurement:", measurement);
 
-        addMeasurement(measurement);
+        await addMeasurement(measurement);
         broadcastMeasurement(measurement);
         res.status(201).json({
             "message": "Measurements received",
@@ -119,17 +118,42 @@ app.post('/api/measurements', (req: Request, res: Response) => {
 
 // Endpoint to update the settings
 // We use zod to validate the incoming data against the settingsSchema
-// We temporary store the settings in memory, but in a real application we would store them in a database
-app.patch('/api/settings', (req: Request, res: Response) => {
+app.patch('/api/settings', async (req: Request, res: Response) => {
     const result = settingsSchema.safeParse(req.body);
     if (result.success) {
-        updateSettings(result.data);
-        res.status(200).json(getSettings());
+        await updateSettings(result.data);
+        res.status(200).json(await getSettings());
     } else {
         res.status(400).json({
             "error": "Invalid settings"
         });
     }
+});
+
+// Error handling middleware
+app.use((err: unknown, req: Request, res: Response, next: NextFunction) => {
+    console.error('Unhandled error:', err);
+    if (res.headersSent) {
+        return next(err);
+    }
+    let statusCode = 500;
+
+    if (typeof err === 'object' &&
+        err !== null &&
+        'status' in err &&
+        typeof err.status === 'number' &&
+        Number.isInteger(err.status) &&
+        err.status >= 400 &&
+        err.status <= 599) {
+
+        statusCode = err.status;
+    }
+
+    const message = statusCode >= 500
+        ? "Internal server error"
+        : "Invalid request";
+
+    res.status(statusCode).json({ error: message });
 });
 
 // Start the server
