@@ -1,0 +1,3 @@
+# Exclude CMake from GitHub language statistics
+*.cmake linguist-detectable=false
+CMakeLists.txt linguist-detectable=false
