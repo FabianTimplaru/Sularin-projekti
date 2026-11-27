@@ -323,7 +323,7 @@ while (1) {
 
     // TILAKONE
     switch (current_state) {
-
+         // Pääsilmukka "NORMAL_STATE"
         case STATE_NORMAL:
         // Siirrytään kalibrointiin 5 s painalluksella
         if (long_press) {
@@ -333,7 +333,7 @@ while (1) {
             break;
         }
     
-    // Pääsilmukka "NORMAL_STATE"
+   
 
     if (trigger_fetch && !is_sending) {
             trigger_fetch = false;
@@ -498,10 +498,7 @@ case STATE_CALIBRATE_INIT:
     break;
 
 case STATE_CALIBRATE_DRY:
-    if (!is_pressed && (now - last_cal_blink_time >= 4000)) {
-                led_play_sequence(SEQ_DRY);
-                last_cal_blink_time = now;
-            }
+    
     if (!is_pressed && (now - cal_state_enter_time >= 10000)) {
                 printf("Kalibrointi aikakatkaistiin. Palataan normaaliin tilaan.\n");
                 led_play_sequence(SEQ_STARTUP);
@@ -511,6 +508,10 @@ case STATE_CALIBRATE_DRY:
                 current_state = STATE_NORMAL;
                 network_request_start_time = now;
                 break;
+            }
+    if (!is_pressed && (now - last_cal_blink_time >= 4000)) {
+                led_play_sequence(SEQ_DRY);
+                last_cal_blink_time = now;
             }
     if (long_press) {
         printf("Arvoa ei tallennettu. kuiva-arvo on %.0f.\nAseta anturi MARKAAN ja paina nappia.\n", dry_adc);
