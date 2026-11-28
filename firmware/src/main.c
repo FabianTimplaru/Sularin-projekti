@@ -154,7 +154,7 @@ void fetch_settings()
 
         printf("Haetaan asetukset backendilta... ");
     } 
-    else // LISÄÄ TÄMÄ
+    else 
     {
         printf("Virhe: Ei voitu luoda tcp_pcb-oliota asetusten hakuun.\n");
         is_sending = false;
@@ -163,7 +163,7 @@ void fetch_settings()
     cyw43_arch_lwip_end();
 }
 
-// Mullankosteusanturin funktio
+// Mullankosteusanturin funktio read_soil_adc
 uint16_t read_soil_adc(void) {
     gpio_put(POWER_PIN, 1);
     sleep_ms(10);
@@ -187,9 +187,9 @@ int main()
 
     // Määritetään ajastukset toiminnoille:
     
-    const uint32_t sensor_wait_time = 2000; // 2 sekuntia
-    const uint32_t sensor_sample_count = 10; // Kuinka monta tulosta kerätään,ennen kuin lähetetään tiedot backendille
-    bool first_send = true; // Ensimmäinen lähetys heti käynnistyessä, jotta voidana määrittää laite yhdistetyksi
+    const uint32_t sensor_wait_time = 2000; // mittausten väli: 2 sekuntia
+    const uint32_t sensor_sample_count = 300; // Kuinka monta tulosta kerätään,ennen kuin lähetetään tiedot backendille. 300*2=600s= 10 minuuttia
+    bool first_send = true; // Ensimmäinen lähetys heti käynnistyessä, jotta voidaan määrittää laite yhdistetyksi
 
     bool button_was_pressed = false;
     uint32_t button_press_start_time = 0;
