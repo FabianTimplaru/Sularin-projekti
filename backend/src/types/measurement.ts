@@ -5,4 +5,5 @@ export interface Measurement {
     soilMoisture_adc: number;
     soilMoisture_percent: number;
     timestamp: Date;
+    isSimulated?: boolean;
 }

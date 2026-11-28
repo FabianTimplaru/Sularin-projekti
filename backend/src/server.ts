@@ -8,7 +8,7 @@ import 'dotenv/config';
 import cors from 'cors';
 
 const app: Express = express();
-const port = 3000;
+const PORT = Number(process.env.PORT ?? 3000);
 
 // SSE (Server-Sent Events) clients set
 const clients = new Set<Response>();
@@ -23,7 +23,7 @@ function broadcastMeasurement(measurement: Measurement) {
 
 // Enable CORS for the whitelisted origins
 app.use(cors({
-    origin: '*'
+    origin: process.env.ALLOWED_ORIGINS?.split(',').map((origin) => origin.trim() ?? [])
 }));
 
 // Middleware to parse JSON request bodies
@@ -98,13 +98,13 @@ app.post('/api/measurements', async (req: Request, res: Response) => {
             airHumidity: result.data.airHumidity,
             soilMoisture_adc: result.data.soilMoisture_adc,
             soilMoisture_percent: result.data.soilMoisture_percent,
-            timestamp: new Date()
+            timestamp: new Date(),
         };
 
         console.log("Received measurement:", measurement);
 
         await addMeasurement(measurement);
-        broadcastMeasurement(measurement);
+        broadcastMeasurement({ ...measurement, isSimulated: false });
         res.status(201).json({
             "message": "Measurements received",
             "success": true
@@ -119,7 +119,18 @@ app.post('/api/measurements', async (req: Request, res: Response) => {
 // Endpoint to update the settings
 // We use zod to validate the incoming data against the settingsSchema
 app.patch('/api/settings', async (req: Request, res: Response) => {
+    const authHeader = req.get("Authorization");
+    const expectedAuth = `Bearer ${process.env.SETTINGS_TOKEN}`;
+
+    if (authHeader !== expectedAuth) {
+        res.status(401).json({
+            "error": "Unauthorized access"
+        });
+        return;
+    }
+
     const result = settingsSchema.safeParse(req.body);
+
     if (result.success) {
         await updateSettings(result.data);
         res.status(200).json(await getSettings());
@@ -157,6 +168,16 @@ app.use((err: unknown, req: Request, res: Response, next: NextFunction) => {
 });
 
 // Start the server
-app.listen(port, () => {
-    console.log(`Server is running on http://localhost:${port}`);
-});
+if (!process.env.API_TOKEN?.trim() && !process.env.SETTINGS_TOKEN) {
+    console.error("API_TOKEN is not set in the environment variables. The server will not start.");
+    process.exit(1);
+}
+
+if (Number.isInteger(PORT) && PORT > 0 && PORT < 65536) {
+    app.listen(PORT, "0.0.0.0", () => {
+        console.log(`Server is running on http://localhost:${PORT}`);
+    });
+} else {
+    console.error(`Invalid PORT number: ${PORT}. Please set a valid port number between 1 and 65535.`);
+    process.exit(1);
+}

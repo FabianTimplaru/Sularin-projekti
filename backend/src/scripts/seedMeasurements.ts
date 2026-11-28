@@ -373,8 +373,13 @@ async function insertMeasurements(): Promise<void> {
             "LOCK TABLE measurements IN SHARE ROW EXCLUSIVE MODE"
         );
 
-        await client.query(`TRUNCATE TABLE measurements RESTART IDENTITY`);
-        console.log("Measurements cleared and identity reset");
+        // Delete all simulated measurements before generating new history
+        const deleted = await client.query(`
+            DELETE FROM measurements
+            WHERE is_simulated = TRUE
+        `);
+
+        console.log(`Removed ${deleted.rowCount} simulated measurements`);
 
         for (
             let i = 0;

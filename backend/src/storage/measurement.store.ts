@@ -26,7 +26,8 @@ export async function getAllMeasurements(): Promise<Measurement[]> {
             air_humidity AS "airHumidity",
             soil_moisture_adc AS "soilMoisture_adc",
             soil_moisture_percent AS "soilMoisture_percent",
-            timestamp
+            timestamp,
+            is_simulated AS "isSimulated"
         FROM measurements
         ORDER BY timestamp ASC, id ASC
         `);
@@ -40,7 +41,8 @@ export async function getLatestMeasurement(): Promise<Measurement | undefined> {
             air_humidity AS "airHumidity",
             soil_moisture_adc AS "soilMoisture_adc",
             soil_moisture_percent AS "soilMoisture_percent",
-            timestamp
+            timestamp,
+            is_simulated AS "isSimulated"
         FROM measurements
         ORDER BY timestamp DESC, id DESC LIMIT 1
         `);
